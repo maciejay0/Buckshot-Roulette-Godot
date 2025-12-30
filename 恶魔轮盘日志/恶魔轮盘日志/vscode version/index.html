@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Buckshot Reborn - VS Code Edition</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        
+        <div id="mirror-overlay" onclick="cancelMirrorMode()">
+            <div style="color:#fff; margin-top:20%">点击任意处取消</div>
+        </div>
+
+        <div id="menu-screen">
+            <button id="achieve-btn" class="top-bar-btn" style="left:20px" onclick="showAchievements()">🏆 0/30</button>
+            <button id="lang-btn" class="top-bar-btn" onclick="toggleLanguage()">🌐 EN / 中</button>
+            
+            <h1 style="color:#e74c3c; font-size:3.5rem; margin-bottom:5px; text-align:center;">BUCKSHOT<br>REBORN</h1>
+            <div id="subtitle-fix" style="color:#666; margin-bottom:30px;">Roulette Update</div>
+            
+            <div id="twist-toggle" onclick="toggleTwist()">
+                <div class="checkbox-fake"></div> <span id="txt-twist">TWISTED MODE</span>
+            </div>
+            
+            <button class="menu-btn continue" onclick="loadGame()" id="btn-continue" style="display:none;">▶ CONTINUE</button>
+            <button class="menu-btn" onclick="preStartGame('pve')" id="btn-pve">💀 单人战役</button>
+            <button class="menu-btn" onclick="preStartGame('pvp')" id="btn-pvp">⚔️ 双人对战</button>
+            <button class="menu-btn info" onclick="showHelp()">📖 玩法说明</button>
+        </div>
+        
+        <div id="dice-overlay">
+            <h2 style="color:var(--accent-gold); margin-bottom:30px;">INITIATIVE ROLL</h2>
+            <div class="dice-area">
+                <div class="dice-group">
+                    <div style="color:var(--accent-green)">YOU</div>
+                    <div class="die-box"><div class="die die-p1" id="d1-1">?</div><div class="die die-p1" id="d1-2">?</div></div>
+                    <div class="roll-res" id="sum-p1"></div>
+                </div>
+                <div class="dice-group">
+                    <div style="color:var(--accent-red)">ENEMY</div>
+                    <div class="die-box"><div class="die die-p2" id="d2-1">?</div><div class="die die-p2" id="d2-2">?</div></div>
+                    <div class="roll-res" id="sum-p2"></div>
+                </div>
+            </div>
+            <div id="dice-msg" style="color:#aaa; font-size:1.2rem; min-height:30px;">Rolling...</div>
+        </div>
+
+        <div id="help-screen" class="modal-overlay">
+            <div id="help-content">
+                <h1 style="color:#fff; text-align:center; border-bottom:1px solid #333; padding-bottom:15px;">📖 游戏指南</h1>
+                <div class="help-section">
+                    <h2 class="help-h2">1. 基础规则</h2>
+                    <p class="help-p"><strong>目标：</strong> 耗尽对方的生命值 (HP)。</p>
+                </div>
+                <button class="menu-btn" style="width:100%; margin:10px 0 0 0;" onclick="closeHelp()">关闭</button>
+            </div>
+        </div>
+
+        <div id="talent-screen" class="modal-overlay">
+            <h2 id="title-talent" style="color:#fff; margin-bottom:20px;">CHOOSE TALENT</h2>
+            <div class="talent-container" id="talent-grid-box"></div>
+        </div>
+
+        <div id="pact-screen" class="modal-overlay">
+            <h2 id="title-pact" style="color:var(--accent-cursed); margin-bottom:10px;">DARK PACT</h2>
+            <p id="pact-desc" style="color:#999; margin-bottom:20px; font-size:0.8rem;">High Risk, High Reward.</p>
+            <div class="talent-container" id="pact-grid-box"></div>
+            <button id="btn-nodeal" class="top-bar-btn" style="position:static; margin-top:20px; border-color:#666; color:#666;" onclick="selectPact(null)">NO DEAL</button>
+        </div>
+
+        <div id="starter-item-screen" class="modal-overlay">
+            <h2 style="color:var(--accent-blue); margin-bottom:10px;">SUPPLY DROP</h2>
+            <p style="color:#aaa; margin-bottom:20px; font-size:0.9rem;">选择 2 个初始道具</p>
+            <div id="starter-item-grid" style="display:flex; flex-wrap:wrap; justify-content:center; gap:10px; max-width:90%;"></div>
+            <div style="display:flex; gap:15px; margin-top:20px; width:100%; justify-content:center;">
+                <button class="top-bar-btn" style="position:static; border-color:var(--accent-purple); color:var(--accent-purple); padding: 10px 20px; font-size: 1rem;" onclick="randomizeStarterItems()">🎲 RANDOM</button>
+                <button id="btn-confirm-items" class="top-bar-btn" style="position:static; border-color:var(--accent-blue); color:var(--accent-blue); padding: 10px 30px; font-size: 1rem;" onclick="confirmStarterItems()">CONFIRM (0/2)</button>
+            </div>
+        </div>
+
+        <div id="settings-screen" class="modal-overlay">
+            <div class="settings-content">
+                <h2 id="setting-paused" style="color:#fff; margin:0;">PAUSED</h2>
+                <div class="setting-row">
+                    <span id="txt-sound">Sound Effects</span>
+                    <label class="switch"><input type="checkbox" id="sound-toggle" onchange="toggleSound()"><span class="slider"></span></label>
+                </div>
+                <hr style="width:100%; border:0; border-top:1px solid #444; margin:5px 0;">
+                <button class="menu-btn" style="width:100%; margin:0; font-size:1rem;" onclick="closeSettings()">▶ RESUME</button>
+                <button class="menu-btn" style="width:100%; margin:0; font-size:1rem;" onclick="exitGame()">🏠 MAIN MENU</button>
+                <button class="menu-btn danger" style="width:100%; margin:0; font-size:1rem;" onclick="giveUpGame()">🏳️ GIVE UP</button>
+            </div>
+        </div>
+
+        <div id="achieve-screen" class="modal-overlay">
+            <h2 style="color:var(--accent-gold); margin-bottom:10px;">ACHIEVEMENTS</h2>
+            <div class="achieve-list" id="achieve-list-container"></div>
+            <button class="top-bar-btn" style="position:static; margin-top:15px; border-color:#fff; color:#fff;" onclick="closeAchieve()">CLOSE</button>
+        </div>
+
+        <div id="achieve-popup"><span style="font-size:1.5rem">🏆</span><div><div style="font-size:0.7rem; text-transform:uppercase;">Unlocked</div><div id="achieve-pop-name" style="font-size:0.9rem;">...</div></div></div>
+        <div id="event-splash"><div class="event-splash-card"><div class="splash-title" id="splash-title">EVENT</div><div class="splash-desc" id="splash-desc">...</div></div></div>
+        <div id="toast-area"></div>
+
+        <div id="overlay">
+            <h2 id="win-title">VICTORY</h2>
+            <div id="win-comment">"..."</div>
+            <div id="win-desc">...</div>
+            <div style="display:flex; width:100%; justify-content:center; gap:10px; flex-wrap:wrap;" id="card-display"></div>
+            <button id="restart-btn" onclick="showMenu()">🏠 MAIN MENU</button>
+        </div>
+
+        <button id="settings-btn" onclick="openSettings()">⚙️</button>
+        
+        <div class="top-info-bar">
+            <div class="boss-area">
+                <div class="boss-card" id="boss-card">
+                    <div class="boss-name" id="boss-name-display">UNKNOWN</div>
+                    <div class="boss-passive" id="boss-passive-display">...</div>
+                    <div id="boss-taunt">You missed.</div> </div>
+                <div id="enemy-items-display"></div>
+            </div>
+            <div class="event-bar">
+                <div style="font-size:0.6rem; color:#555; font-weight:bold;">EVENT</div>
+                <div class="event-val" id="active-event-name">NORMAL</div>
+                <div class="event-tooltip"><h4 id="tooltip-event-title">Title</h4><p id="tooltip-event-desc">Description</p></div>
+            </div>
+        </div>
+
+        <div id="table-area">
+            <div id="gun-display">🔫</div>
+            <div id="ammo-tracker">-- / --</div>
+            <div id="history-display"></div> 
+            <div id="chamber-display"></div> <div id="info-text">System Ready...</div> </div>
+
+        <div id="items-area"></div>
+
+        <div id="bottom-panel">
+            <div class="hp-container">
+                
+                <div style="display:flex; flex-direction:column;" class="demon-area-hover">
+                    <div class="lives-wrapper" id="lives-demon"></div>
+                    <div class="hp-label" style="color:var(--accent-red);" id="label-demon">DEMON</div>
+                    <div class="demon-talent-tooltip">
+                        <strong style="color:var(--accent-red)" id="hover-demon-name">UNKNOWN</strong>
+                        <hr style="border:0; border-top:1px solid #555; margin:5px 0;">
+                        <div style="font-size:0.75rem; color:#ccc; line-height:1.4; white-space: pre-wrap;" id="hover-demon-desc">...</div>
+                    </div>
+                    <div id="demon-hp" class="hp-bar"></div>
+                </div>
+
+                <div style="display:flex; flex-direction:column; align-items:flex-end;" class="you-area-hover">
+                    <div class="lives-wrapper" id="lives-you"></div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span id="ui-pact-icon" style="font-size:1.1rem; display:none; text-shadow:0 0 8px var(--accent-cursed); cursor:help;"></span>
+                        <div class="hp-label" style="color:var(--accent-green);" id="label-you">YOU</div>
+                    </div>
+                    <div id="player-hp" class="hp-bar"></div>
+                    <div class="my-talent-tooltip">
+                        <div style="margin-bottom:4px;">
+                            <strong style="color:var(--accent-green)">TALENT: </strong>
+                            <span id="hover-talent-name" style="font-weight:bold;">NO TALENT</span><br>
+                            <span style="font-size:0.7rem; color:#aaa" id="hover-talent-desc">...</span>
+                        </div>
+                        <div id="ui-pact-info" style="display:none; border-top:1px solid #444; margin-top:4px; padding-top:4px;">
+                            <strong style="color:var(--accent-cursed)">PACT: </strong>
+                            <span id="hover-pact-name" style="font-weight:bold; color:var(--accent-cursed);"></span><br>
+                            <span style="font-size:0.7rem; color:#ccc" id="hover-pact-desc"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="controls">
+                <button id="btn-self" class="action-btn btn-self" onclick="activePlayerAction('self')">
+                    <span id="txt-self">SHOOT SELF</span><small id="sub-self">Risk</small>
+                </button>
+                <button id="btn-enemy" class="action-btn btn-enemy" onclick="activePlayerAction('enemy')">
+                    <span id="txt-enemy">SHOOT ENEMY</span><small id="sub-enemy">Damage</small>
+                </button>
+            </div>
+        </div>
+
+        <div id="sicbo-screen" class="modal-overlay">
+            <div class="sicbo-content">
+                <h1 style="color:var(--accent-gold); margin-bottom:10px;">☠️ 死亡骰宝 ☠️</h1>
+                <p style="color:#aaa; font-size:0.9rem; margin-bottom:30px;">
+                    赌徒用他的命做注。<br>
+                    <span style="color:var(--accent-red)">围骰 (三骰同点) = 玩家直接失去一条命</span>
+                </p>
+                
+                <div class="sicbo-dice-area">
+                    <div class="die" id="sb-d1">?</div>
+                    <div class="die" id="sb-d2">?</div>
+                    <div class="die" id="sb-d3">?</div>
+                </div>
+                <div id="sicbo-result" style="height:30px; margin:20px 0; font-weight:bold; color:#fff;"></div>
+
+                <div class="sicbo-actions" id="sicbo-btn-group">
+                    <button class="menu-btn" onclick="resolveSicBo('small')" style="border-color:var(--accent-blue); color:var(--accent-blue);">
+                        <div>SMALL (小)</div><small>4 - 10 点</small>
+                    </button>
+                    <button class="menu-btn" onclick="resolveSicBo('big')" style="border-color:var(--accent-red); color:var(--accent-red);">
+                        <div>BIG (大)</div><small>11 - 17 点</small>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div> <script src="assets/js/constants.js"></script>
+    <script src="assets/js/engine.js"></script> 
+    <script src="assets/js/ui.js"></script>
+</body>
+</html>
