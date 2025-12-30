@@ -399,6 +399,38 @@ body {
 .item-tooltip p { margin: 0; font-size: 0.75rem; color: #ccc; line-height: 1.4; }
 .item-deceptive { filter: grayscale(1) opacity(0.6); } /* 欺诈之眼效果：道具看起来像假的 */
 
+/* --- 恶魔区域悬浮效果 --- */
+.demon-area-hover {
+    cursor: help; /* 鼠标变成问号 */
+    position: relative; /* 作为定位基准 */
+}
+
+.demon-talent-tooltip {
+    visibility: hidden; 
+    opacity: 0; 
+    position: absolute; 
+    bottom: 100%; /* 显示在上方 */
+    left: 0;      /* 左对齐 */
+    background: rgba(20, 5, 5, 0.98); /*深红色背景 */
+    border: 1px solid var(--accent-red);
+    padding: 10px; 
+    width: 220px; /* 宽度 */
+    border-radius: 8px; 
+    z-index: 100;
+    transition: 0.2s; 
+    pointer-events: none; 
+    text-align: left;
+    margin-bottom: 10px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+}
+
+/* 鼠标悬停时显示 */
+.demon-area-hover:hover .demon-talent-tooltip { 
+    visibility: visible; 
+    opacity: 1; 
+    transform: translateY(-5px); /* 微微上浮动画 */
+}
+
 /* =========================================
    6. 底部面板 (血量与操作)
    ========================================= */
@@ -631,4 +663,31 @@ input:checked + .slider:before { transform: translateX(24px); }
 .top-bar-btn:active {
     transform: translateY(2px);
     opacity: 0.8;
+}
+
+/* style.css */
+
+/* 12. --- 骰宝界面样式 --- */
+.sicbo-content {
+    background: radial-gradient(circle, #2c3e50, #000);
+    border: 2px solid var(--accent-gold);
+    padding: 30px; border-radius: 12px; width: 85%; max-width: 400px;
+    text-align: center; box-shadow: 0 0 50px rgba(255, 165, 0, 0.2);
+    animation: popIn 0.4s;
+}
+.sicbo-dice-area {
+    display: flex; justify-content: center; gap: 15px; margin-top: 20px;
+}
+.sicbo-actions {
+    display: flex; gap: 10px; margin-top: 10px;
+}
+.sicbo-actions .menu-btn {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 15px 5px; font-size: 1rem;
+}
+/* 围骰触发时的恐怖特效 */
+.triple-kill {
+    animation: shake 0.5s infinite;
+    border-color: var(--accent-red) !important;
+    background: #300 !important;
 }

@@ -22,6 +22,7 @@ const ALL_ITEM_LIST = [
     'delay_shell', // 后效弹
     'death_chip',  // 临终筹码
     'adrenaline',  // 肾上腺素
+    'expired_med', // 过期药
     'phone'        // 神秘手机
 ];
 
@@ -30,7 +31,8 @@ const ALL_ITEM_LIST = [
 const ITEM_ICONS = { 
     magnifier:'🔍', beer:'🍺', saw:'🪚', smoke:'🚬', cuffs:'🔗', inverter:'🔄', 
     jammer:'🚫', mirror:'🔮', preload:'⏳', feint:'🪤', safety:'🧷',
-    hourglass:'⏳', visor:'🎭', delay_shell:'🧪', death_chip:'⚰️', adrenaline:'💉', phone:'📱'
+    hourglass:'⏳', visor:'🎭', delay_shell:'🧪', death_chip:'⚰️', adrenaline:'💉', 
+    expired_med: '💊', phone:'📱'
 };
 
 // 3. 语言包 (Localization)
@@ -67,7 +69,7 @@ const TEXT = {
         i_saw: "锯子", d_saw: "下一发伤害翻倍。", 
         i_smoke: "香烟", d_smoke: "回复 1 点生命值。",
         i_cuffs: "手铐", d_cuffs: "跳过对手回合。", 
-        i_inverter: "逆转器", d_inverter: "转换子弹虚实。",
+        i_inverter: "逆转器", d_inverter: "转换当前子弹虚实。",
         i_jammer: "干扰器", d_jammer: "废掉对手道具。", 
         i_mirror: "魔镜", d_mirror: "窃取增益。",
         i_preload: "预装弹", d_preload: "底部塞入一发实弹。", 
@@ -78,7 +80,24 @@ const TEXT = {
         i_delay_shell: "后效弹", d_delay_shell: "实弹伤害延迟 2 回合生效。",
         i_death_chip: "临终筹码", d_death_chip: "若本轮死亡，对敌人造成 2 点伤害。",
         i_adrenaline: "肾上腺素", d_adrenaline: "再次行动，但下回合扣 1 HP。",
+        i_expired_med: "过期药", d_expired_med: "50% 回1血,50% 扣1血。",
         i_phone: "神秘手机", d_phone: "查看未来随机一发子弹。",
+
+        // ✨ 新增环境标题与描述
+        e_calm: "死寂", ed_calm: "一切都很平静... 暂时。",
+        e_mist: "浓雾", ed_mist: "看不清弹仓数量 (记牌器失效)。",
+        e_blood_moon: "血月", ed_blood_moon: "无法回复生命值 (治疗失效)。",
+        e_rust: "锈蚀", ed_rust: "道具老化,30% 概率使用失效。",
+        e_carnival: "狂欢", ed_carnival: "道具掉落量翻倍！",
+        e_static: "静电", ed_static: "开火有 25% 概率触发连射 (不消耗回合)。",
+        e_drought: "干旱", ed_drought: "资源匮乏，每轮道具 -1。",
+
+        // 日志文本
+        rust_fail: "🍂 道具因为锈蚀碎掉了！",
+        static_trigger: "⚡ 静电反应！立即再次行动！",
+        med_heal: "💊 药效惊人！恢复 1 点生命。",
+        med_hurt: "🤢 过期了... 受到 1 点毒素伤害！",
+        no_heal_blood: "🩸 血月之下无法治疗！",
 
         // --- 机制提示 ---
         mech_dud: "💨 哑弹！子弹受潮了，无人受伤。",
@@ -90,12 +109,27 @@ const TEXT = {
         win_died: "你死了", win_vic: "胜利", 
         win_kill: "被 {name} 击杀", win_reward: "击败 {name}，选择奖励：",
 
-        // --- Boss 信息 (b_名字, p_被动描述) ---
-        b_butcher: "屠夫", p_butcher: "被动：实弹伤害 +1", 
-        b_gambler: "赌徒", p_gambler: "被动：最后必为实弹",
-        b_doctor: "瘟医", p_doctor: "被动：概率回血", 
-        b_tactician: "战术家", p_tactician: "被动：干扰首个道具",
-        b_player2: "P2", p_player2: "公平竞技",
+        // --- Boss 信息 (b_名字, p_被动描述, desc_详细描述) ---
+        
+        // 1. 屠夫
+        b_butcher: "屠夫", p_butcher: "被动：伤害抗性 & 暴力",
+        desc_butcher: "【暴虐】\n1. 脂肪层：单次受到的伤害上限锁定为 2 点。\n2. 蛮力：实弹伤害 +1 (暴走后 +2)。",
+        
+        // 2. 赌徒
+        b_gambler: "赌徒", p_gambler: "被动：开局窃取道具",
+        desc_gambler: "【出千】\n1. 顺手牵羊:每回合开始时,60% 概率偷取你一个道具。\n2. 它是庄家，它说了算。",
+        
+        // 3. 瘟医
+        b_doctor: "瘟医", p_doctor: "被动：病毒感染 & 自愈",
+        desc_doctor: "【病毒】\n1. 感染:实弹附带剧毒,2回合后造成额外 1 点伤害。\n2. 自愈：回合开始时概率回复生命值。",
+        
+        // 4. 战术家
+        b_tactician: "战术家", p_tactician: "被动：封锁 & 干扰",
+        desc_tactician: "【谍战】\n1. 干扰：你使用的放大镜有 50% 概率显示假情报。\n2. 封锁：每回合你会有一个道具被其被动封锁。",
+        
+        // 5. P2
+        b_player2: "玩家P2", p_player2: "公平对决",
+        desc_player2: "另一个不幸的灵魂。\n没有特殊能力,完全公平的对决。",
 
         // --- Boss 暴走阶段 (二阶段) ---
         enrage_title: "⚠ 阶段二：暴走", 
@@ -105,6 +139,7 @@ const TEXT = {
         enrage_tactician: "封锁行动 | 获得手铐",
 
         // --- 特殊事件 (e_标题, ed_描述) ---
+        // (注意：这里保留旧文本以防报错，但实际使用的是上方 e_calm 等新环境)
         e_normal: "平静", ed_normal: "无特殊规则", 
         e_overheat: "枪管过热", ed_overheat: "连续实弹伤害叠加",
         e_blood: "血债血偿", ed_blood: "自伤加倍，无保留回合", 
@@ -176,7 +211,7 @@ const TEXT = {
         rr_trigger: "🎲 俄罗斯轮盘模式！", rr_desc: "1 实弹 5 空弹。轮流对自己开枪。生死有命。",
         btn_pull: "扣动扳机"
     },
-    // 英文翻译 (en) 结构与 zh 完全一致，此处省略注释
+    // 英文翻译 (en)
     en: {
         pve_btn: "💀 Campaign", pvp_btn: "⚔️ Versus", restart_btn: "🏠 MAIN MENU",
         btn_continue: "▶ CONTINUE", label_demon: "DEMON", label_p2: "P2", label_you: "YOU", label_p1: "P1",
@@ -198,19 +233,55 @@ const TEXT = {
         i_safety: "Safety", d_safety: "Prevent suicide death once.",
         i_hourglass: "Hourglass", d_hourglass: "Move round.", i_visor: "Deceptive Visor", d_visor: "Fake clues.",
         i_delay_shell: "Delayed Round", d_delay_shell: "Late Dmg.", i_death_chip: "Death Chip", d_death_chip: "Mutual destruction.",
-        i_adrenaline: "Adrenaline", d_adrenaline: "Act again, hurt later.", i_phone: "Phone", d_phone: "Check future.",
+        i_adrenaline: "Adrenaline", d_adrenaline: "Act again, hurt later.", 
+        i_expired_med: "Expired Meds", d_expired_med: "50% Heal 1 HP, 50% Take 1 Dmg.",
+        i_phone: "Phone", d_phone: "Check future.",
+
+        // ✨ New Events
+        e_calm: "Calm", ed_calm: "Standard rules apply.",
+        e_mist: "The Mist", ed_mist: "Ammo counts hidden.",
+        e_blood_moon: "Blood Moon", ed_blood_moon: "Healing effects disabled.",
+        e_rust: "Rust", ed_rust: "Items have 30% failure chance.",
+        e_carnival: "Carnival", ed_carnival: "Double item loot.",
+        e_static: "Static", ed_static: "25% chance to shoot again instantly.",
+        e_drought: "Drought", ed_drought: "Loot -1 per round.",
+
+        // Logs
+        rust_fail: "🍂 Item crumbled due to Rust!",
+        static_trigger: "⚡ Static Discharge! Act again!",
+        med_heal: "💊 It worked! +1 HP.",
+        med_hurt: "🤢 Expired... -1 HP!",
+        no_heal_blood: "🩸 Blood Moon prevents healing!",
+
         mech_dud: "💨 DUD! Wet powder.", mech_jam: "🔥 JAMMED! Overheated.", mech_mutual: "⚖️ MUTUAL DESTRUCTION!",
         win_draw: "DRAW", win_draw_desc: "No survivors.",
-        b_butcher: "Butcher", p_butcher: "Passive: +1 DMG", b_gambler: "Gambler", p_gambler: "Passive: Rigged",
-        b_doctor: "Doctor", p_doctor: "Passive: Regen", b_tactician: "Tactician", p_tactician: "Passive: Jam",
+        
+        // --- Boss Info ---
+        b_butcher: "Butcher", p_butcher: "Passive: Resist & Force",
+        desc_butcher: "[BRUTAL]\n1. Thick Skin: Max damage taken per shot is capped at 2.\n2. Force: Live round DMG +1 (Enrage +2).",
+
+        b_gambler: "Gambler", p_gambler: "Passive: Steal Items",
+        desc_gambler: "[RIGGED]\n1. Pickpocket: 60% chance to steal 1 item at start of turn.\n2. The House always wins.",
+
+        b_doctor: "Doctor", p_doctor: "Passive: Poison & Heal",
+        desc_doctor: "[VIRUS]\n1. Infection: Live shots apply poison (1 DMG after 2 turns).\n2. Self-Care: Chance to heal at start of turn.",
+
+        b_tactician: "Tactician", p_tactician: "Passive: Block & Jam",
+        desc_tactician: "[INTEL]\n1. Jamming: Your Magnifier has 50% chance to show FAKE info.\n2. Blockade: One of your items is blocked each turn.",
+        
         b_player2: "P2", p_player2: "Fair Play",
+        desc_player2: "Another poor soul.\nFair fight. No special abilities.",
+
         enrage_title: "⚠ ENRAGE", enrage_butcher: "DMG+2 | Saw", enrage_gambler: "Steal | Shuffle",
         enrage_doctor: "Heal +2 HP", enrage_tactician: "Lock | Cuffs",
+        
+        // Old events kept for compatibility
         e_normal: "Calm", ed_normal: "No special rules", e_overheat: "Overheat", ed_overheat: "Live shots increase DMG",
         e_blood: "Blood Debt", ed_blood: "Self-shot: 2x DMG, No Turn Retention", e_shuffle: "Shuffle", ed_shuffle: "Chamber shuffled twice",
         e_vision: "Holo-Sight", ed_vision: "25% chance to reveal round",
         e_fog: "Fog", ed_fog: "History & Colors hidden", e_fair: "Fair Play", ed_fair: "No consecutive turns",
         e_volatile: "Volatile Ammo", ed_volatile: "30% chance Blank becomes Live", e_sacrifice: "Sacrifice", ed_sacrifice: "Use Item costs 1 HP",
+        
         buff_heal: "Medkit", bd_heal: "Heal to Full", buff_hp: "Armor", bd_hp: "Max HP +1",
         buff_box: "Ammo Box", bd_box: "4 Items", buff_tech: "High-Tech", bd_tech: "Jammer + Mirror",
         talent_eye: "Eagle Eye", td_eye: "30% Reveal 1st Round", talent_pack: "Hoarder", td_pack: "Start +1 Item",
@@ -266,8 +337,13 @@ const BOSS_TAUNTS = {
 
 // 5. 事件 ID 列表
 const EVENTS = [
-    { id: 'normal'}, { id: 'overheat'}, { id: 'blood'}, { id: 'shuffle'}, { id: 'vision'},
-    { id: 'fog'}, { id: 'fair'}, { id: 'volatile'}, { id: 'sacrifice'}
+    { id: 'calm', weight: 40 },      // 平静
+    { id: 'mist', weight: 10 },      // 浓雾
+    { id: 'blood_moon', weight: 10 },// 血月
+    { id: 'rust', weight: 10 },      // 锈蚀
+    { id: 'carnival', weight: 10 },  // 狂欢
+    { id: 'static', weight: 10 },    // 静电
+    { id: 'drought', weight: 10 }    // 干旱
 ];
 
 // 6. 恶魔 (Boss) 原型数据

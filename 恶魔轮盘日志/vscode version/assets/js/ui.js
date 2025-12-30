@@ -86,10 +86,27 @@ function renderLanguage() {
     // Boss 信息栏更新
     if (currentBoss) {
         let prefix = (gameMode === 'pvp') ? 'player2' : currentBoss.id;
+        
+        // 设置顶部 Boss 名字
         let displayName = t('b_'+prefix);
         if(displayName.startsWith('b_')) displayName = t('boss_unknown'); // 防止报错
         document.getElementById('boss-name-display').innerText = displayName;
+        
+        // 设置顶部 Boss 被动简述
         document.getElementById('boss-passive-display').innerText = t('p_' + prefix);
+
+        // --- ✨ 更新左下角 Boss 悬浮窗详情 (鼠标移到 DEMON 上显示) ---
+        // 1. 设置悬浮窗名字
+        document.getElementById('hover-demon-name').innerText = displayName;
+        
+        // 2. 设置详细描述 (desc_butcher, desc_doctor 等)
+        let descKey = 'desc_' + prefix;
+        let descText = t(descKey);
+        
+        // 防止忘记配置导致显示 key 名，给个默认值
+        if (descText === descKey) descText = "No data available.";
+        document.getElementById('hover-demon-desc').innerText = descText;
+
     } else {
         document.getElementById('boss-name-display').innerText = t('boss_unknown');
     }
@@ -240,8 +257,8 @@ function updateAmmoTracker() {
     let blank = magazine.filter(b => b === 0).length;
     let el = document.getElementById('ammo-tracker');
     
-    // 迷雾事件：隐藏具体数值
-    if (currentEvent && currentEvent.id === 'fog') {
+    // ✨✨✨ 修改：适配新的 mist ID (浓雾) ✨✨✨
+    if (currentEvent && (currentEvent.id === 'mist' || currentEvent.id === 'fog')) {
         el.innerText = `【 ??? | Total: ${magazine.length} 】`;
         el.classList.add('fog-text');
     } else {
@@ -254,8 +271,8 @@ function updateAmmoTracker() {
 function updateHistoryUI() {
     const container = document.getElementById('history-display');
     container.innerHTML = '';
-    // 判断是否需要隐藏历史 (迷雾 或 PvP扑克脸天赋)
-    let isHidden = (currentEvent && currentEvent.id === 'fog') || (selectedTalent === 'poker' && gameMode === 'pvp');
+    // ✨✨✨ 浓雾隐藏历史记录 (支持 mist 和 fog) ✨✨✨
+    let isHidden = (currentEvent && (currentEvent.id === 'mist' || currentEvent.id === 'fog')) || (selectedTalent === 'poker' && gameMode === 'pvp');
     if (isHidden) container.classList.add('hist-hidden'); else container.classList.remove('hist-hidden');
 
     historyLog.forEach(val => {
@@ -310,8 +327,6 @@ function renderTalentSelection() {
         box.appendChild(el);
     });
 }
-
-// ui.js
 
 // 渲染初始道具选择界面
 function renderItemSelection() {
