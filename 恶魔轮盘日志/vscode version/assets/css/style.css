@@ -4,6 +4,21 @@
    1. 全局样式 (Global Styles)
    ========================================= */
 
+/* ✨ 新增：全局字体基准放大 */
+html {
+    /* 浏览器默认通常是 16px。
+       改为 18px 会让所有 rem 单位的元素放大约 12%。
+       改为 20px 会放大 25%。 */
+    font-size: 20px; 
+}
+
+/* 针对手机端可能需要更大的字 */
+@media (max-width: 600px) {
+    html {
+        font-size: 16px; /* 手机屏幕小，保持默认或微调，防止爆框 */
+    }
+}
+
 /* 定义 CSS 变量（颜色常量），方便全局统一修改和调用 */
 :root {
     --bg-dark: #050505;       /* 深色背景 */
@@ -557,7 +572,7 @@ input:checked + .slider:before { transform: translateX(24px); }
 }
 
 /* =========================================
-   9. 新增功能样式 (魔镜遮罩 & 高亮)
+   9. (魔镜遮罩 & 高亮)
    ========================================= */
 
 /* 魔镜模式的全屏遮罩层 */
@@ -587,4 +602,33 @@ input:checked + .slider:before { transform: translateX(24px); }
     transition: 0.3s;
     pointer-events: auto !important; /* 确保遮罩层之上可以点击 */
     animation: pulse 1.5s infinite; /* 呼吸动画 */
+}
+
+/* 10. 初始道具选择界面的道具按钮样式 */
+.starter-select-btn {
+    width: 60px; height: 60px;
+    background: #1a1a1a; border: 1px solid #444; border-radius: 6px;
+    cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: 0.2s; opacity: 0.7; /* 没选中时稍微暗一点 */
+}
+
+/* 选中状态：高亮边框 + 完全不透明 */
+.starter-select-btn.selected {
+    border: 2px solid var(--accent-blue);
+    background: #222;
+    opacity: 1;
+    box-shadow: 0 0 10px rgba(30, 144, 255, 0.3);
+    transform: scale(1.1);
+}
+
+/* 禁用状态：当选满2个时，未选中的变灰 */
+.starter-select-btn.dimmed {
+    opacity: 0.3;
+    pointer-events: none; /* 禁止点击 */
+}
+
+/* 11. 顶部导航栏按钮样式 */
+.top-bar-btn:active {
+    transform: translateY(2px);
+    opacity: 0.8;
 }

@@ -107,6 +107,28 @@
             <button id="btn-nodeal" class="top-bar-btn" style="position:static; margin-top:20px; border-color:#666; color:#666;" onclick="selectPact(null)">NO DEAL</button>
         </div>
 
+        <div id="starter-item-screen" class="modal-overlay">
+            <h2 style="color:var(--accent-blue); margin-bottom:10px;">SUPPLY DROP</h2>
+            <p style="color:#aaa; margin-bottom:20px; font-size:0.9rem;">选择 2 个初始道具</p>
+            
+            <div id="starter-item-grid" style="display:flex; flex-wrap:wrap; justify-content:center; gap:10px; max-width:90%;"></div>
+            
+            <div style="display:flex; gap:15px; margin-top:20px; width:100%; justify-content:center;">
+                
+                <button class="top-bar-btn" 
+                        style="position:static; border-color:var(--accent-purple); color:var(--accent-purple); padding: 10px 20px; font-size: 1rem;" 
+                        onclick="randomizeStarterItems()">
+                    🎲 RANDOM
+                </button>
+
+                <button id="btn-confirm-items" class="top-bar-btn" 
+                        style="position:static; border-color:var(--accent-blue); color:var(--accent-blue); padding: 10px 30px; font-size: 1rem;" 
+                        onclick="confirmStarterItems()">
+                    CONFIRM (0/2)
+                </button>
+            </div>
+        </div>
+
         <div id="settings-screen" class="modal-overlay">
             <div class="settings-content">
                 <h2 id="setting-paused" style="color:#fff; margin:0;">PAUSED</h2>

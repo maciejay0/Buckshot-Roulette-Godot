@@ -311,6 +311,51 @@ function renderTalentSelection() {
     });
 }
 
+// ui.js
+
+// 渲染初始道具选择界面
+function renderItemSelection() {
+    const grid = document.getElementById('starter-item-grid');
+    grid.innerHTML = '';
+    
+    // 排除掉一些不适合开局拿的道具 (比如 PvP 专用道具)
+    // 这里复用 ALL_ITEM_LIST，但过滤掉 feint(假动作) 和 visor(假视镜)
+    let pool = ALL_ITEM_LIST.filter(i => i !== 'feint' && i !== 'visor');
+
+    pool.forEach(key => {
+        let btn = document.createElement('div');
+        btn.className = 'starter-select-btn';
+        btn.id = 'starter-btn-' + key; // 给个ID方便查找
+        btn.onclick = () => toggleStarterItem(key); // 点击触发选择逻辑
+        
+        // 内容：图标 + 名字
+        btn.innerHTML = `
+            <div style="font-size:1.5rem;">${ITEM_ICONS[key]}</div>
+            <div style="font-size:0.5rem; color:#888;">${t('i_'+key)}</div>
+        `;
+        
+        grid.appendChild(btn);
+    });
+    
+    // 重置按钮状态
+    updateStarterConfirmBtn();
+}
+
+// 更新确认按钮的文字 (0/2)
+function updateStarterConfirmBtn() {
+    const btn = document.getElementById('btn-confirm-items');
+    btn.innerText = `CONFIRM (${starterItemsBuffer.length}/2)`;
+    
+    // 只有选了 1个 或 2个 才能开始 (如果强制必须2个，就写 === 2)
+    if (starterItemsBuffer.length > 0) {
+        btn.style.opacity = 1;
+        btn.style.pointerEvents = 'auto';
+    } else {
+        btn.style.opacity = 0.5;
+        btn.style.pointerEvents = 'none';
+    }
+}
+
 // 渲染契约选择卡片 (随机取3个)
 function renderPactSelection() {
     const box = document.getElementById('pact-grid-box'); box.innerHTML = '';

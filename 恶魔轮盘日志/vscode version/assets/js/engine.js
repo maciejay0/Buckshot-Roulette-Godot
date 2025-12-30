@@ -7,6 +7,7 @@
 // 1. 全局状态初始化 (Global State)
 // =========================================
 let curLang = 'zh', gameMode = 'pve', level = 1, isTwisted = false; // 语言, 模式, 关卡, 扭曲模式开关
+let starterItemsBuffer = []; // 用于暂存玩家选择的初始道具
 let magazine = [], chamberKnowledge = [], historyLog = []; // 弹舱数组(1实0空), 玩家已知信息(1实2空0未知), 历史记录
 let hp = { 1: 4, 2: 3 }, maxHp = { 1: 4, 2: 3 }, lives = { 1: 2, 2: 2 }; // 血量与除颤器(命)
 let currentItems = { 1: {}, 2: {} }; // 双方道具库存
@@ -242,18 +243,26 @@ function selectTalent(tal) {
     renderPactSelection(); 
 }
 
-// 选择契约的回调 -> 正式初始化
+
+// 选择契约的回调 -> 进入道具选择
 function selectPact(pact) {
     selectedPact = pact;
     document.getElementById('pact-screen').style.display = 'none';
-    initGame();
+    
+    starterItemsBuffer = []; 
+    document.getElementById('starter-item-screen').style.display = 'flex';
+    renderItemSelection(); // 调用 ui.js 里的渲染函数
 }
 
 // 初始化一局新游戏
 function initGame() {
     document.getElementById('menu-screen').style.display = 'none';
+
+    currentItems = { 1: {}, 2: {} }; 
+    //防止道具残留
     level = 1;
     bannedItems = [];
+
     beerCount = 0; magnifierCount = 0;
     isRussianRoulette = false;
     
@@ -406,8 +415,17 @@ function startRound(isResurrection = false) {
         magazine = [1, 0, 0, 0, 0, 0]; // 固定 1实 5空
     } else {
         let total = 6; // 固定 6 发
-        let live = Math.floor(Math.random() * (total + 1)); // 随机实弹数
-        
+        let live;
+
+        // 1. 设定 5% 的极小概率触发“噩梦时刻” (6发全实弹)
+        if (Math.random() < 0.05) {
+            live = 6; 
+             updateLog("⚠️ 警告：检测到高能反应！"); 
+        } else {
+            // 2. 剩下 95% 的情况：生成 1 到 5 发实弹 (拒绝 0 发)
+            live = Math.floor(Math.random() * 5) + 1; 
+        }
+
         for(let i=0; i<live; i++) magazine.push(1);
         for(let i=0; i<(total-live); i++) magazine.push(0);
         
@@ -417,8 +435,8 @@ function startRound(isResurrection = false) {
             [magazine[i], magazine[j]] = [magazine[j], magazine[i]]; 
         }
         
-        // 特殊修正
-        if (gameMode === 'pve' && currentBoss.id === 'gambler') magazine[0] = 1; // 赌徒首发必实
+        // 特殊修正 (保持不变)
+        if (gameMode === 'pve' && currentBoss.id === 'gambler') magazine[0] = 1; 
         if (currentEvent.id === 'shuffle') { for (let i = magazine.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [magazine[i], magazine[j]] = [magazine[j], magazine[i]]; } }
         if (selectedPact === 'eerie' && magazine.length > 0) { let r = Math.floor(Math.random() * magazine.length); magazine[r] = (magazine[r] === 1) ? 0 : 1; updateLog("🔫 PACT: Eerie Mag Triggered"); }
     }
@@ -482,8 +500,8 @@ function fire(targetType) {
         
         if (visorActive) { visorActive = false; updateLog("🎭 VISOR EXPIRED"); }
         
-        // --- 判定哑弹 (5%概率，扭曲模式除外) ---
-        let isDud = (bullet === 1 && Math.random() < 0.05 && !isTwisted && !isRussianRoulette);
+        // --- 判定哑弹 (3%概率，扭曲模式除外) ---
+        let isDud = (bullet === 1 && Math.random() < 0.03 && !isTwisted && !isRussianRoulette);
         if (isDud) { bullet = 0; updateLog(t('mech_dud')); } 
         renderChamberUI(); updateAmmoTracker(); 
         
@@ -751,9 +769,20 @@ function useItem(name) {
 
     // 血祭事件检查 (使用道具扣血)
     if (currentEvent.id === 'sacrifice') { 
-        if (hp[currentTurn] > 1) { hp[currentTurn]--; renderUI(); } 
-        else { updateLog("🩸 Too weak for sacrifice!"); return; } 
-    }
+            if (hp[currentTurn] > 1) { 
+                // 情况 A：血量充足，正常扣 1 血
+                hp[currentTurn]--; 
+                renderUI(); 
+                updateLog("🩸 献祭：失去 1 点生命值");
+            } 
+            else { 
+                // 情况 B：只剩 1 血 (濒死状态)
+                // 不扣血，也不 return，直接通过！
+                // 给玩家一个正向反馈的提示
+                updateLog("🩸 濒死特权：免除了献祭代价！");
+                playSound('loot'); // 给个正反馈音效
+            } 
+        }
 
     // --- 2. 消耗道具 ---
     currentItems[currentTurn][name]--;
@@ -1102,38 +1131,180 @@ function resetItems(pid) { ALL_ITEM_LIST.forEach(k => currentItems[pid][k] = 0);
 
 const MAX_ITEMS = 8; // ✨ 定义最大手牌上限
 
-// 发放道具函数
-function lootItems(pid, count) {
-    let gained = []; // 记录本次获得的道具，用于弹窗显示
+// ✨ 1. 定义道具权重 (权重越大，掉率越高)
+const ITEM_WEIGHTS = {
+    // T3 Common (权重 4) - 基础三件套
+    'magnifier': 4, 'beer': 4, 'smoke': 4,
     
-    // 1. 计算当前角色已有的道具总数
+    // T2 Uncommon (权重 3) - 策略类
+    'inverter': 3, 'safety': 3, 'hourglass': 3, 'phone': 3, 'feint': 3,
+    
+    // T1 Rare (权重 2) - 强力类
+    'saw': 2, 'jammer': 2, 'preload': 2, 'visor': 2, 'delay_shell': 2,
+    
+    // T0 Legendary (权重 1) - 神器类 (很难获得)
+    'cuffs': 1, 'mirror': 1, 'adrenaline': 1, 'death_chip': 1
+};
+
+// ✨ 2. 加权随机辅助函数
+function getWeightedRandomItem() {
+    // 过滤掉当前被禁用的道具 (bannedItems) 和当前模式不支持的道具
+    // 这一点很重要，否则会报错
+    let validItems = ITEM_LIST.filter(key => ITEM_WEIGHTS[key] !== undefined);
+    
+    // 计算总权重
+    let totalWeight = 0;
+    validItems.forEach(key => {
+        totalWeight += ITEM_WEIGHTS[key];
+    });
+
+    // 生成随机数 (0 到 totalWeight 之间)
+    let random = Math.random() * totalWeight;
+    
+    // 遍历寻找命中的道具
+    for (let i = 0; i < validItems.length; i++) {
+        let key = validItems[i];
+        let weight = ITEM_WEIGHTS[key];
+        
+        if (random < weight) {
+            return key;
+        }
+        random -= weight;
+    }
+    
+    //以此为保底 (理论上不会运行到这)
+    return validItems[0];
+}
+
+// ✨ 3. 修改后的发放道具函数
+function lootItems(pid, count) {
+    let gained = []; // 记录本次获得的道具
+    
+    // 计算当前持有总量
     let currentTotal = 0;
     for (let k in currentItems[pid]) {
         currentTotal += currentItems[pid][k];
     }
 
     for(let i = 0; i < count; i++) {
-        // 2. 检查是否达到上限
+        // 检查上限
         if (currentTotal >= MAX_ITEMS) {
             if (pid === 1) {
-                // 如果是玩家，给个日志提示和弹窗警告
                 updateLog("🎒 背包已满！无法携带更多道具！");
                 if (typeof showToast === 'function') showToast("INVENTORY FULL", "已达携带上限");
             }
-            break; // 停止发放后续道具
+            break;
         }
 
-        // 3. 随机抽取道具
-        let item = ITEM_LIST[Math.floor(Math.random() * ITEM_LIST.length)];
+        // 🟢 使用加权随机获取道具
+        let item = getWeightedRandomItem();
         
-        // 4. 增加库存
+        // 增加库存
         currentItems[pid][item] = (currentItems[pid][item] || 0) + 1;
         gained.push(item);
-        currentTotal++; // 实时更新当前总数
+        currentTotal++;
     }
     
-    // 5. 显示获得道具的提示 (Toast)
+    // 弹窗提示
     if(gained.length > 0) showItemToast(gained, pid);
+}
+
+// 玩家点击某个初始道具
+function toggleStarterItem(key) {
+    const idx = starterItemsBuffer.indexOf(key);
+    
+    if (idx > -1) {
+        // 如果已经选了，就取消选择
+        starterItemsBuffer.splice(idx, 1);
+        document.getElementById('starter-btn-' + key).classList.remove('selected');
+    } else {
+        // 如果没选，且还没满 2 个，就添加
+        if (starterItemsBuffer.length < 2) {
+            starterItemsBuffer.push(key);
+            document.getElementById('starter-btn-' + key).classList.add('selected');
+        } else {
+            // 如果已经满 2 个了，可以选择替换掉第一个，或者直接不让选
+            // 这里我们做一个简单的震动反馈，提示满了
+            playSound('click'); 
+            return; 
+        }
+    }
+    
+    // UI 更新：如果满 2 个，让其他未选中的变暗
+    const allBtns = document.querySelectorAll('.starter-select-btn');
+    allBtns.forEach(b => {
+        if (starterItemsBuffer.length >= 2 && !b.classList.contains('selected')) {
+            b.classList.add('dimmed');
+        } else {
+            b.classList.remove('dimmed');
+        }
+    });
+
+    updateStarterConfirmBtn(); // 更新按钮文字
+    playSound('click');
+}
+
+// 确认选择 -> 正式开始游戏
+function confirmStarterItems() {
+    document.getElementById('starter-item-screen').style.display = 'none';
+    
+    initGame(); // 1. 初始化游戏（这会重置 currentItems）
+    
+    // 2. ✨ 将选好的道具塞进玩家背包
+    starterItemsBuffer.forEach(item => {
+        currentItems[1][item] = (currentItems[1][item] || 0) + 1;
+    });
+    
+    // 3. 刷新 UI 显示道具
+    renderItemsGrid();
+    renderUI();
+    
+    // 给个提示
+    if(starterItemsBuffer.length > 0) showItemToast(starterItemsBuffer, 1);
+}
+
+// engine.js
+
+// 随机选择2个初始道具
+function randomizeStarterItems() {
+    // 1. 清空当前选择
+    starterItemsBuffer = [];
+    const allBtns = document.querySelectorAll('.starter-select-btn');
+    
+    // 重置所有按钮样式 (移除高亮和变暗)
+    allBtns.forEach(b => {
+        b.classList.remove('selected');
+        b.classList.remove('dimmed');
+    });
+
+    // 2. 准备道具池 (排除不适合开局的道具)
+    let pool = ALL_ITEM_LIST.filter(i => i !== 'feint' && i !== 'visor');
+    
+    // 3. 随机抽取 2 个不重复的
+    while (starterItemsBuffer.length < 2) {
+        let r = Math.floor(Math.random() * pool.length);
+        let item = pool[r];
+        
+        // 防止重复添加
+        if (!starterItemsBuffer.includes(item)) {
+            starterItemsBuffer.push(item);
+        }
+    }
+
+    // 4. 更新 UI 状态
+    starterItemsBuffer.forEach(key => {
+        let btn = document.getElementById('starter-btn-' + key);
+        if (btn) btn.classList.add('selected');
+    });
+
+    // 让未选中的变暗 (复用之前的逻辑)
+    allBtns.forEach(b => {
+        if (!b.classList.contains('selected')) b.classList.add('dimmed');
+    });
+
+    // 5. 更新确认按钮文本并播放音效
+    updateStarterConfirmBtn();
+    playSound('click'); // 或者用 'load' 音效听起来更像装填
 }
 
 function setControls(enable) { document.getElementById('btn-self').disabled = !enable; document.getElementById('btn-enemy').disabled = isRussianRoulette ? true : !enable; document.querySelectorAll('.item-btn').forEach(b => b.disabled = isRussianRoulette ? true : !enable); }
