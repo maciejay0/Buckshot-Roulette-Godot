@@ -1,0 +1,590 @@
+/* --- assets/css/style.css --- */
+
+/* =========================================
+   1. 全局样式 (Global Styles)
+   ========================================= */
+
+/* 定义 CSS 变量（颜色常量），方便全局统一修改和调用 */
+:root {
+    --bg-dark: #050505;       /* 深色背景 */
+    --panel-bg: #1a1a1a;      /* 面板背景色 */
+    --text-main: #e0e0e0;     /* 主要文字颜色 */
+    --accent-green: #2ecc71;  /* 强调色：绿色 (玩家/正面) */
+    --accent-red: #ff4757;    /* 强调色：红色 (敌人/伤害) */
+    --accent-blue: #1e90ff;   /* 强调色：蓝色 (空弹/信息) */
+    --accent-gold: #ffa502;   /* 强调色：金色 (事件/奖励) */
+    --accent-purple: #a55eea; /* 强调色：紫色 (诅咒/特殊) */
+    --accent-cursed: #ff6b81; /* 强调色：被诅咒的红色 */
+    --accent-grey: #7f8c8d;   /* 强调色：灰色 (平局/无效) */
+    --accent-shield: #3498db; /* 护盾颜色 */
+    --accent-poison: #00b894; /* 毒素颜色 */
+}
+
+/* 网页主体样式 */
+body {
+    background: #000;         /* 整个网页背景全黑 */
+    color: var(--text-main);  /* 使用变量定义的文字颜色 */
+    font-family: 'Segoe UI', 'Roboto', sans-serif; /* 字体设置 */
+    display: flex;            /* 使用 Flex 布局 */
+    flex-direction: column;   /* 垂直排列 */
+    align-items: center;      /* 水平居中 */
+    justify-content: center;  /* 垂直居中 */
+    height: 100vh;            /* 占满整个视口高度 */
+    margin: 0;                /* 去掉默认外边距 */
+    overflow: hidden;         /* 禁止页面滚动 */
+    user-select: none;        /* 禁止用户选中文字 (像原生游戏一样) */
+}
+
+/* 游戏主容器 (手机状的长方形区域) */
+#game-container {
+    width: 100%;              /* 宽度自适应 */
+    max-width: 600px;         /* 最大宽度限制 (手机风格) */
+    height: 100vh;            /* 高度占满屏幕 */
+    background-color: #111;   /* 深灰背景 */
+    box-shadow: 0 0 50px rgba(0,0,0,0.5); /* 外部发光阴影 */
+    display: flex;            /* Flex 布局 */
+    flex-direction: column;   /* 内部元素垂直排列 */
+    padding: 10px;            /* 内边距 */
+    box-sizing: border-box;   /* 边框计算在宽度内 */
+    position: relative;       /* 相对定位，作为内部绝对定位元素的参考点 */
+    perspective: 800px;       /* 3D 透视视距 (为了枪的 3D 旋转效果) */
+    border: 2px solid #111;   /* 边框 */
+    transition: border-color 0.5s; /* 边框颜色变化的过渡动画 */
+}
+
+/* =========================================
+   2. 菜单系统 (Menu System)
+   ========================================= */
+
+/* 覆盖全屏的菜单遮罩层 */
+#menu-screen {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; /* 铺满父容器 */
+    background: rgba(10, 10, 10, 0.98); /* 不透明度 98% 的黑色背景 */
+    z-index: 300;             /* 层级很高，盖住游戏内容 */
+    display: flex;            /* Flex 布局 */
+    flex-direction: column;   /* 垂直排列按钮 */
+    align-items: center;      /* 水平居中 */
+    justify-content: center;  /* 垂直居中 */
+}
+
+/* 顶部小按钮 (语言切换/成就) */
+.top-bar-btn {
+    position: absolute; top: 20px; /* 绝对定位在顶部 */
+    background: transparent;  /* 透明背景 */
+    border: 1px solid #444;   /* 灰色边框 */
+    color: #888;              /* 灰色文字 */
+    padding: 6px 14px;        /* 内边距 */
+    border-radius: 20px;      /* 胶囊状圆角 */
+    cursor: pointer;          /* 鼠标变手型 */
+    font-size: 0.8rem;        /* 字体大小 */
+    transition: 0.2s;         /* 悬停动画时间 */
+}
+.top-bar-btn:hover { border-color: #fff; color: #fff; } /* 悬停变白 */
+#lang-btn { right: 20px; }    /* 语言按钮靠右 */
+#achieve-btn { left: 20px; border-color: var(--accent-gold); color: var(--accent-gold); } /* 成就按钮靠左，金色 */
+
+/* 设置齿轮按钮 */
+#settings-btn {
+    position: absolute; top: 15px; right: 15px; z-index: 100; /* 无论何时都在右上角 */
+    background: #222; border: 1px solid #444; color: #ccc;
+    width: 35px; height: 35px; border-radius: 50%; /* 圆形按钮 */
+    cursor: pointer; font-size: 1.2rem;
+    display: flex; align-items: center; justify-content: center; 
+    transition: 0.2s;
+}
+#settings-btn:hover { background: #444; color: #fff; border-color: #fff; transform: rotate(90deg); } /* 悬停旋转效果 */
+
+/* 主菜单大按钮样式 */
+.menu-btn {
+    background: linear-gradient(180deg, #333, #222); /* 垂直渐变背景 */
+    border: 1px solid #555;   /* 边框 */
+    color: #fff;              /* 白字 */
+    padding: 15px 40px;       /* 大内边距 */
+    font-size: 1.1rem;        /* 大字体 */
+    margin: 8px;              /* 按钮间距 */
+    cursor: pointer;          /* 手型 */
+    width: 80%;               /* 宽度占 80% */
+    border-radius: 8px;       /* 圆角 */
+    font-weight: bold;        /* 粗体 */
+    transition: 0.2s;         /* 动画 */
+    box-shadow: 0 4px 0 #111; /* 底部立体阴影 */
+}
+.menu-btn:active { transform: translateY(4px); box-shadow: none; } /* 按下时的压感效果 */
+.menu-btn:hover { border-color: #888; background: #444; } /* 悬停变亮 */
+
+/* 不同类型的按钮颜色变种 */
+.menu-btn.continue { /* 继续游戏按钮 (绿色) */
+    border-color: var(--accent-green); color: var(--accent-green); 
+    background: linear-gradient(180deg, #1a3320, #0d1a10); 
+}
+.menu-btn.danger { /* 放弃游戏按钮 (红色) */
+    border-color: var(--accent-red); color: var(--accent-red); 
+    background: linear-gradient(180deg, #331a1a, #1a0d0d); 
+}
+.menu-btn.info { /* 帮助按钮 (蓝色) */
+    border-color: var(--accent-blue); color: var(--accent-blue); 
+    background: linear-gradient(180deg, #1a2533, #0d121a); 
+}
+
+/* 扭曲模式开关 (Checkbox) */
+#twist-toggle {
+    margin-bottom: 20px; cursor: pointer; padding: 12px 25px;
+    border: 2px solid #333; border-radius: 8px; color: #666; font-weight: bold;
+    transition: 0.3s; display: flex; align-items: center; gap: 10px;
+}
+#twist-toggle.active { /* 激活状态 */
+    border-color: var(--accent-cursed); background: rgba(214, 48, 49, 0.1); color: var(--accent-cursed); 
+}
+.checkbox-fake { width: 18px; height: 18px; border: 2px solid currentColor; border-radius: 4px; display: inline-block; position: relative; }
+#twist-toggle.active .checkbox-fake::after { content:'✔'; position:absolute; top:-3px; left:2px; font-size:14px; } /* 伪元素画勾 */
+
+/* =========================================
+   3. 弹窗与卡片 (Modals & Cards)
+   ========================================= */
+
+/* 通用弹窗遮罩层 */
+.modal-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.95); /* 黑色半透明背景 */
+    z-index: 400;             /* 层级最高 */
+    display: none;            /* 默认隐藏，JS 控制显示 flex */
+    flex-direction: column; align-items: center; justify-content: center;
+    animation: fadeIn 0.3s;   /* 淡入动画 */
+}
+
+/* 天赋选择容器 */
+.talent-container { display: flex; gap: 10px; width: 98%; justify-content: center; align-items: stretch; }
+
+/* 天赋卡片 */
+.talent-card {
+    background: #222; border: 1px solid #444; 
+    width: 32%;               /* 三列布局 */
+    padding: 20px 10px; border-radius: 8px;
+    cursor: pointer; text-align: center; transition: 0.2s;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: auto; min-height: 160px; position: relative;
+}
+.talent-card:hover { /* 悬停效果 */
+    border-color: var(--accent-green); background: #2a2a2a; transform: translateY(-5px); 
+}
+.talent-icon { font-size: 2.5rem; margin-bottom: 10px; }
+.talent-title { color: var(--accent-green); font-weight: bold; margin-bottom: 8px; font-size: 0.9rem; text-transform: uppercase;}
+.talent-desc { color: #aaa; font-size: 0.75rem; line-height: 1.4; word-wrap: break-word; }
+
+/* 契约 (诅咒) 卡片 - 红色系 */
+.curse-card {
+    background: #1a0505; border: 1px solid #500; width: 32%; padding: 20px 10px; border-radius: 8px;
+    cursor: pointer; text-align: center; transition: 0.2s; color: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.curse-card:hover { 
+    border-color: var(--accent-cursed); background: #2a0a0a; 
+    transform: translateY(-5px); box-shadow: 0 0 15px rgba(255, 71, 87, 0.2); 
+}
+.curse-title { color: var(--accent-cursed); font-weight: bold; margin-bottom: 10px; text-transform: uppercase; font-size: 0.9rem; }
+.curse-desc { font-size: 0.75rem; color: #aaa; line-height: 1.4; }
+
+/* =========================================
+   4. 游戏内界面 (In-Game UI)
+   ========================================= */
+
+/* 顶部信息栏 (Boss信息 + 事件信息) */
+.top-info-bar { 
+    display: flex; justify-content: space-between; align-items: stretch; 
+    margin-bottom: 10px; gap: 10px; margin-top: 25px; /* 留出顶部空间 */
+}
+
+/* Boss 区域 */
+.boss-area { flex: 2; display:flex; flex-direction:column; gap:5px; } /* 占 2/3 宽度 */
+
+/* Boss 名字卡片 */
+.boss-card { 
+    flex: 1; min-height: 60px;
+    background: #1a1a1a; border-left: 4px solid var(--accent-red); /* 左侧红色装饰条 */
+    padding: 10px 15px; border-radius: 4px; 
+    display: flex; flex-direction: column; justify-content: center; position: relative;
+}
+.boss-card.enraged { /* Boss 暴走状态 */
+    background: #300; border-color: #f00; box-shadow: inset 0 0 20px #500; /* 红色发光背景 */
+}
+.boss-name { font-size: 1rem; font-weight: 800; color: var(--accent-red); letter-spacing: 1px;}
+.boss-passive { font-size: 0.7rem; color: #666; }
+
+/* 敌人道具展示区 */
+#enemy-items-display {
+    display: flex; gap: 4px; padding: 0 5px; min-height: 25px; align-items: center;
+}
+.enemy-item-icon {
+    width: 24px; height: 24px; background: #222; border: 1px solid #444; color: #aaa;
+    border-radius: 4px; display: flex; align-items: center; justify-content: center;
+    font-size: 14px; position: relative; cursor: help;
+}
+.enemy-item-icon:hover { border-color: var(--accent-red); color: #fff; background: #333; }
+
+/* 敌人道具的悬浮提示 */
+.enemy-item-tooltip {
+    visibility: hidden; opacity: 0; width: 140px; background: rgba(0,0,0,0.95);
+    border: 1px solid var(--accent-red); color: #fff; padding: 8px; border-radius: 4px;
+    position: absolute; top: 100%; left: 0; z-index: 200; pointer-events: none;
+    font-size: 0.7rem; text-align: left; transition: 0.2s;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+}
+.enemy-item-icon:hover .enemy-item-tooltip { visibility: visible; opacity: 1; }
+
+/* Boss 嘲讽气泡 */
+#boss-taunt {
+    position: absolute; bottom: -35px; left: 10px; 
+    background: #fff; color: #000;
+    padding: 5px 15px; border-radius: 15px; font-size: 0.8rem; font-weight: bold;
+    opacity: 0; transition: 0.3s; pointer-events: none; white-space: nowrap; z-index: 50;
+}
+#boss-taunt::before { /* 小三角 */
+    content:''; position: absolute; top:-5px; left:10px; 
+    border-width:0 5px 5px; border-style:solid; border-color: transparent transparent #fff; 
+}
+#boss-taunt.show { opacity: 1; transform: translateY(-5px); } /* 显示动画 */
+
+/* 事件栏 (Event Bar) */
+.event-bar { 
+    flex: 1; /* 占 1/3 宽度 */
+    background: #1a1a1a; border: 1px solid #333; border-radius: 4px; 
+    display: flex; flex-direction: column; align-items: center; justify-content: center; 
+    position: relative; cursor: help; 
+}
+.event-val { font-size: 0.8rem; color: var(--accent-gold); font-weight: bold; text-align: center; line-height: 1; }
+/* 事件悬浮提示 */
+.event-tooltip { 
+    visibility: hidden; opacity: 0; width: 180px; 
+    background: rgba(0,0,0,0.95); border: 1px solid var(--accent-gold); color: #fff; 
+    padding: 10px; border-radius: 6px; 
+    position: absolute; top: 110%; right: 0; z-index: 100; 
+    transition: 0.2s; pointer-events: none; text-align: left; 
+}
+.event-bar:hover .event-tooltip { visibility: visible; opacity: 1; }
+
+/* 中间桌面区域 (Table Area) */
+#table-area { 
+    flex-grow: 1; flex-shrink: 1; /* 允许弹性缩放 */
+    min-height: 120px; 
+    background: radial-gradient(#222, #111); /* 径向渐变背景 */
+    border-radius: 12px; border: 1px solid #333; 
+    display: flex; flex-direction: column; align-items: center; justify-content: center; 
+    margin-bottom: 10px; position: relative; transition: border-color 0.3s;
+}
+
+/* 枪支显示 (Emoji) */
+#gun-display { 
+    font-size: 5rem; margin-bottom: 5px; 
+    transition: transform 0.1s ease-out; 
+    filter: drop-shadow(0 15px 15px rgba(0,0,0,0.6)); /* 阴影增加立体感 */
+    transform-style: preserve-3d; cursor: crosshair;
+}
+
+/* 弹药计数器文字 */
+#ammo-tracker { 
+    font-family: 'Courier New', monospace; /* 打字机字体 */
+    font-weight: bold; font-size: 1.1rem; color: #fff; 
+    background: rgba(0,0,0,0.6); padding: 5px 20px; 
+    border-radius: 20px; border: 1px solid #555; letter-spacing: 2px; 
+}
+.fog-text { letter-spacing: 0px !important; color: #888 !important; } /* 迷雾模式样式 */
+
+/* 历史记录圆点容器 */
+#history-display { display: flex; gap: 6px; margin-top: 5px; height: 20px; align-items: center; opacity: 0.8; }
+/* 历史圆点 */
+.hist-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #555; }
+.hist-live { background: var(--accent-red); border-color: var(--accent-red); box-shadow: 0 0 5px var(--accent-red); } /* 实弹红点 */
+.hist-blank { background: #555; border-color: #888; } /* 空弹灰点 */
+.hist-unknown { background: transparent; border: 0; color: var(--accent-gold); font-weight: bold; font-size: 12px; line-height: 12px; } /* 未知 */
+.hist-hidden .hist-live, .hist-hidden .hist-blank { background: #333 !important; border-color: #444 !important; box-shadow: none !important; } /* 隐藏模式 */
+
+/* 弹舱 UI (如放大镜查看时的圆圈) */
+#chamber-display { display: flex; gap: 8px; margin-top: 5px; height: 30px; }
+.shell { 
+    width: 20px; height: 20px; border-radius: 50%; 
+    display: flex; align-items: center; justify-content: center; font-size: 0.7rem; 
+    border: 1px solid #444; background: #222; color: #666; transition:0.3s; 
+}
+.shell.live { border-color: var(--accent-red); background: #c0392b; color: #000;} /* 实弹样式 */
+.shell.blank { border-color: var(--accent-blue); background: #2980b9; color: #fff;} /* 空弹样式 */
+.fog-active .shell.live, .fog-active .shell.blank { background: #444 !important; border-color: #666 !important; color: transparent !important; } /* 迷雾遮挡 */
+
+/* 游戏文字日志 */
+#info-text { 
+    color: var(--accent-gold); text-align: center; font-size: 0.95rem; font-weight: bold; 
+    padding: 0 20px; min-height: 40px; display: flex; align-items: center; justify-content: center; 
+    margin-top: 10px; 
+}
+
+/* =========================================
+   5. 道具区域 (Items Area) - 修改版网格布局
+   ========================================= */
+
+#items-area {
+    display: flex;
+    flex-wrap: wrap;          /* 关键：允许换行，道具多了自动排到下一行 */
+    justify-content: center;  /* 居中对齐，看起来更整齐 */
+    gap: 8px;                 /* 道具之间的间距 */
+    width: 100%;
+    height: auto;             /* 高度自动撑开 */
+    min-height: 80px;         /* 最小高度 */
+    overflow: visible;        /* 允许内容溢出显示(主要为了Tooltip不被挡住) */
+    padding: 10px;
+    box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.3); /* 半透明背景 */
+    border-top: 1px solid #333;
+    z-index: 100;             /* 保证在最上层 */
+}
+
+/* Webkit 滚动条美化 (虽然 overflow:visible 了，但备用) */
+#items-area::-webkit-scrollbar { height: 6px; }
+#items-area::-webkit-scrollbar-track { background: #1a1a1a; border-radius: 3px; }
+#items-area::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+#items-area::-webkit-scrollbar-thumb:hover { background: #666; }
+
+/* 道具按钮样式 - 方形图标 */
+.item-btn { 
+    flex: none;               /* 禁止弹性压缩 */
+    width: 60px; height: 60px; /* 固定宽高 */
+    background: #222; 
+    border: 1px solid #444; 
+    border-radius: 6px; 
+    position: relative; 
+    cursor: pointer; 
+    display: flex; flex-direction: column; align-items: center; justify-content: center; 
+    transition: 0.2s;
+}
+
+.item-icon { font-size: 1.6rem; margin-bottom: 0; } /* Emoji 图标大小 */
+.item-name { font-size: 0.5rem; color: #888; margin-top: 2px; transform: scale(0.9); } /* 道具名小字 */
+.item-badge { /* 道具数量红点 */
+    position: absolute; top: -5px; right: -5px; 
+    background: var(--accent-blue); color: #fff; 
+    font-size: 0.7rem; font-weight: bold; width: 18px; height: 18px; 
+    border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+    border: 2px solid #111; 
+}
+.item-btn:hover:not(:disabled) { background: #333; border-color: #666; transform: translateY(-2px); z-index: 10; } /* 悬停浮起 */
+.item-btn:disabled { opacity: 0.2; filter: grayscale(1); } /* 禁用变灰 */
+
+/* 道具详情悬浮框 */
+.item-tooltip { 
+    visibility: hidden; opacity: 0; 
+    width: 180px; 
+    background: rgba(10, 10, 10, 0.98); color: #e0e0e0; 
+    border: 1px solid var(--accent-gold); 
+    border-radius: 6px; padding: 10px; 
+    position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%); /* 居中定位在按钮上方 */
+    z-index: 1000; pointer-events: none; /* 鼠标穿透 */
+    transition: 0.2s; text-align: center; 
+    box-shadow: 0 5px 15px rgba(0,0,0,0.8);
+}
+.item-btn:hover .item-tooltip { visibility: visible; opacity: 1; bottom: 120%; } /* 悬停显示并轻微上浮 */
+.item-tooltip h4 { margin: 0 0 5px 0; color: var(--accent-gold); font-size: 0.9rem; text-transform: uppercase; }
+.item-tooltip p { margin: 0; font-size: 0.75rem; color: #ccc; line-height: 1.4; }
+.item-deceptive { filter: grayscale(1) opacity(0.6); } /* 欺诈之眼效果：道具看起来像假的 */
+
+/* =========================================
+   6. 底部面板 (血量与操作)
+   ========================================= */
+
+#bottom-panel { display: flex; flex-direction: column; gap: 8px; }
+
+/* 血条容器 */
+.hp-container { display: flex; justify-content: space-between; padding: 0 5px; position: relative; align-items: flex-end;}
+.hp-label { font-size: 0.7rem; font-weight: bold; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px;}
+.hp-bar { display: flex; gap: 4px; }
+/* 血量点 (类似电池格) */
+.hp-point { width: 14px; height: 10px; background: #333; border-radius: 2px; box-shadow: inset 0 0 2px #000; }
+.hp-point.demon-active { background: var(--accent-red); box-shadow: 0 0 5px var(--accent-red); } /* 敌人血 */
+.hp-point.you-active { background: var(--accent-green); box-shadow: 0 0 5px var(--accent-green); } /* 玩家血 */
+.hp-point.shielded { border: 2px solid var(--accent-shield); box-sizing: border-box; } /* 护盾样式 */
+
+/* 生命数 (Heart) 容器 */
+.lives-wrapper { display: flex; gap: 5px; margin-bottom: 5px; font-size: 0.9rem; }
+.life-heart { color: #555; transition: 0.3s; }
+.life-active { color: #ff4757; text-shadow: 0 0 5px #ff4757; } /* 激活的心是红色的 */
+
+/* 玩家区域悬停查看天赋 */
+.you-area-hover { cursor: help; }
+.my-talent-tooltip {
+    visibility: hidden; opacity: 0; position: absolute; bottom: 100%; right: 0;
+    background: rgba(10,10,10,0.98); border: 1px solid var(--accent-green);
+    padding: 10px; width: 200px; border-radius: 8px; z-index: 100;
+    transition: 0.2s; pointer-events: none; text-align: left;
+    margin-bottom: 10px;
+}
+.you-area-hover:hover .my-talent-tooltip { visibility: visible; opacity: 1; }
+
+/* 底部操作按钮容器 */
+#controls { display: flex; gap: 10px; height: 60px; }
+/* 射击按钮通用 */
+.action-btn { 
+    flex: 1; /* 平分宽度 */
+    border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; 
+    cursor: pointer; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+    overflow: visible; transition: 0.1s;
+}
+.btn-self { background: linear-gradient(135deg, #27ae60, #2ecc71); } /* 射自己 (绿色) */
+.btn-enemy { background: linear-gradient(135deg, #c0392b, #e74c3c); } /* 射敌人 (红色) */
+.action-btn:disabled { background: #222 !important; color: #444 !important; } /* 禁用 */
+.action-btn small { font-size: 0.7rem; opacity: 0.7; font-weight: normal; margin-top:2px;}
+/* 恶魔交易特效 (按钮故障风) */
+.cursed-btn { background: linear-gradient(135deg, #8e44ad, #2c3e50) !important; border: 2px solid #9b59b6 !important; animation: glitch 0.5s infinite; }
+@keyframes glitch { 0% { transform: translate(0,0); } 20% { transform: translate(-2px, 1px); } 100% { transform: translate(0,0); } }
+
+/* =========================================
+   7. 特效与动画 (Effects & Animations)
+   ========================================= */
+
+/* 事件闪屏 (如：Round Start) */
+#event-splash { 
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+    background: rgba(0, 0, 0, 0.95); z-index: 250; 
+    display: none; flex-direction: column; align-items: center; justify-content: center; 
+    animation: fadeIn 0.3s; 
+}
+.event-splash-card { 
+    width: 80%; height: 40%; background: linear-gradient(135deg, #1a1a1a, #000); 
+    border: 2px solid var(--accent-gold); border-radius: 12px; 
+    display: flex; flex-direction: column; align-items: center; justify-content: center; 
+    box-shadow: 0 0 60px rgba(241, 196, 15, 0.3); 
+    transform: scale(0.8); animation: popIn 0.5s forwards; 
+}
+@keyframes popIn { to { transform: scale(1); } }
+.splash-title { color: var(--accent-gold); font-size: 2rem; font-weight: 900; margin-bottom: 15px; text-transform: uppercase; text-shadow: 0 0 10px black; text-align: center;}
+.splash-desc { color: #ccc; font-size: 1rem; text-align: center; padding: 0 20px; line-height: 1.5; }
+
+/* 吐司通知 (Toast Notification) - 获得道具时 */
+#toast-area {
+    position: absolute; bottom: 120px; right: 20px;
+    display: flex; flex-direction: column; gap: 10px; z-index: 600; pointer-events: none;
+}
+.toast-card {
+    background: rgba(20, 20, 20, 0.95); border-left: 4px solid var(--accent-gold);
+    color: #fff; padding: 12px 20px; border-radius: 4px; display: flex; align-items: center; gap: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5); animation: toastSlideIn 0.4s ease-out;
+    min-width: 200px; backdrop-filter: blur(5px);
+}
+.toast-icon { font-size: 1.5rem; }
+.toast-info { display: flex; flex-direction: column; }
+.toast-title { font-size: 0.7rem; color: #888; text-transform: uppercase; font-weight: bold; }
+.toast-name { font-size: 1rem; color: var(--accent-gold); font-weight: bold; }
+@keyframes toastSlideIn { from { transform: translateX(50px); opacity: 0; } to { transform: translateX(0); opacity: 1; } } /* 滑入动画 */
+@keyframes toastFadeOut { to { transform: translateY(-10px); opacity: 0; } } /* 消失动画 */
+
+/* 设置菜单内容 */
+.settings-content { 
+    background: #1a1a1a; border: 1px solid #444; padding: 25px; 
+    border-radius: 12px; width: 80%; max-width: 320px; 
+    display: flex; flex-direction: column; gap: 15px; align-items: center; 
+    box-shadow: 0 0 40px rgba(0,0,0,0.8); 
+}
+.setting-row { display: flex; justify-content: space-between; align-items: center; width: 100%; color: #ddd; font-weight: bold; }
+/* 开关按钮样式 */
+.switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 34px; border: 1px solid #555; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: var(--accent-green); border-color: var(--accent-green); }
+input:checked + .slider:before { transform: translateX(24px); }
+
+/* 震动与闪光动画 */
+.shaking { animation: shake 0.3s; }
+@keyframes shake { 0% { transform: translate(1px, 1px); } 50% { transform: translate(-3px, -2px); } 100% { transform: translate(0, 0); } }
+.flash-red { animation: flash 0.2s; } /* 被攻击时屏幕闪红 */
+@keyframes flash { 0% { background: rgba(255,0,0,0.3); } 100% { background: transparent; } }
+
+/* 成就弹窗 */
+#achieve-popup { 
+    position: absolute; top: 20px; left: 50%; transform: translateX(-50%); 
+    background: linear-gradient(90deg, #ffcc00, #ffaa00); color: #000; 
+    padding: 8px 25px; border-radius: 50px; font-weight: bold; 
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5); z-index: 500; 
+    display: none; align-items: center; gap: 10px; animation: slideDown 0.5s; 
+}
+@keyframes slideDown { from { top: -50px; } to { top: 20px; } }
+
+/* 成就列表 */
+.achieve-list { width: 90%; max-height: 60%; overflow-y: auto; display: grid; grid-template-columns: 1fr; gap: 8px; padding: 10px; }
+.achieve-item { background: #1a1a1a; border: 1px solid #333; padding: 10px; border-radius: 6px; display: flex; align-items: center; gap: 15px; opacity: 0.5; filter: grayscale(1); }
+.achieve-item.unlocked { opacity: 1; filter: grayscale(0); border-color: var(--accent-gold); background: rgba(255, 215, 0, 0.05); } /* 解锁高亮 */
+.ach-icon { font-size: 1.5rem; } .ach-info { display:flex; flex-direction:column; gap:2px; } .ach-info div:first-child { font-weight:bold; color:#ddd; font-size:0.8rem; } .ach-info div:last-child { font-size:0.65rem; color:#888; }
+
+/* 帮助/指南内容样式 */
+#help-content { width: 90%; height: 85%; overflow-y: auto; background: #1a1a1a; border: 1px solid #444; padding: 20px; border-radius: 8px; box-sizing: border-box; text-align: left; }
+.help-section { margin-bottom: 30px; border-bottom: 1px solid #333; padding-bottom: 15px; }
+.help-h2 { color: var(--accent-gold); font-size: 1.4rem; margin-top: 0; margin-bottom: 15px; border-left: 4px solid var(--accent-gold); padding-left: 10px; }
+.help-p { color: #aaa; font-size: 0.9rem; line-height: 1.6; margin: 5px 0; }
+
+/* 胜利/死亡 结算画面 */
+#overlay { background: rgba(0,0,0,0.98) !important; z-index: 500; display: none; flex-direction: column; align-items: center; justify-content: center; }
+#win-title { font-size: 4rem; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 5px; text-shadow: 0 0 30px currentColor; text-align: center; }
+#win-comment { font-size: 1rem; color: #aaa; margin-bottom: 20px; font-style: italic; text-align: center; max-width: 80%; }
+#win-desc { font-size: 1.2rem; color: #fff; margin-bottom: 30px; text-align: center; }
+.card { background: #222; color: #fff; border: 1px solid #555; border-radius: 8px; padding: 20px 10px; width: 30%; cursor: pointer; text-align: center; transition: 0.2s; }
+.card:hover { border-color: var(--accent-gold); background: #333; transform: scale(1.05); }
+#restart-btn { display: none; margin-top: 20px; font-size: 1rem; padding: 15px 40px; width: auto; border: 1px solid #555; background: #222; color: #fff; border-radius: 50px; cursor: pointer; transition: 0.2s; }
+#restart-btn:hover { background: #fff; color: #000; }
+
+/* =========================================
+   8. 骰子与俄罗斯轮盘 (Dice & Roulette)
+   ========================================= */
+
+/* 掷骰子遮罩层 */
+#dice-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); z-index: 350; display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+}
+.dice-area { display: flex; gap: 40px; margin-bottom: 20px; }
+.dice-group { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.die-box { display: flex; gap: 10px; }
+.die { width: 50px; height: 50px; background: #fff; border-radius: 8px; color: #000; font-size: 1.5rem; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 10px #000; }
+.die-p2 { background: #e74c3c; color: #fff; } /* 敌人骰子红色 */
+.die-p1 { background: #2ecc71; color: #000; } /* 玩家骰子绿色 */
+.roll-res { font-size: 1.5rem; font-weight: bold; color: #fff; min-height: 30px;}
+
+/* 俄罗斯轮盘模式的特殊样式 */
+.rr-mode-active #table-area { border: 2px solid var(--accent-cursed); animation: pulseRed 1s infinite alternate; } /* 桌子红光脉冲 */
+@keyframes pulseRed { from { box-shadow: 0 0 10px #500; } to { box-shadow: 0 0 30px #f00; } }
+.rr-splash { font-size: 3rem; color: var(--accent-cursed); font-weight: 900; text-transform: uppercase; animation: shake 0.5s; text-shadow: 0 0 20px #f00; text-align: center;}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* =========================================
+   9. 新增功能样式 (魔镜遮罩 & 高亮)
+   ========================================= */
+
+/* 魔镜模式的全屏遮罩层 */
+#mirror-overlay {
+    position: absolute; /* 绝对定位，覆盖游戏容器 */
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85); /* 深黑色半透明背景，突出高亮区域 */
+    z-index: 150; /* 层级设置：高于普通道具(100)，但必须低于高亮的目标(160) */
+    display: none; /* 默认隐藏，由 JS 控制显示 */
+    cursor: pointer; /* 鼠标变成手型，提示可点击取消 */
+    animation: fadeIn 0.3s;
+}
+
+/* 敌人道具栏的高亮状态 */
+/* 当魔镜模式开启时，赋予 #enemy-items-display 这个类名 */
+.mirror-active-target {
+    z-index: 160 !important; /* 关键：层级必须高于遮罩层(150) */
+    position: relative;      /* 确保 z-index 生效 */
+    background: rgba(165, 94, 234, 0.2) !important; /* 紫色微光背景 */
+    box-shadow: 0 0 20px var(--accent-purple), inset 0 0 10px var(--accent-purple); /* 内外发光 */
+    border: 2px dashed var(--accent-purple) !important; /* 虚线边框 */
+    border-radius: 8px;
+    padding: 10px !important;
+    transition: 0.3s;
+    pointer-events: auto !important; /* 确保遮罩层之上可以点击 */
+    animation: pulse 1.5s infinite; /* 呼吸动画 */
+}

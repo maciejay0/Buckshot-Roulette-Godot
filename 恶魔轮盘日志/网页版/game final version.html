@@ -1,0 +1,1825 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Buckshot Reborn - Item Feedback Fix</title>
+    <style>
+        /* --- 1. 全局样式 --- */
+        :root {
+            --bg-dark: #050505; --panel-bg: #1a1a1a; --text-main: #e0e0e0;
+            --accent-green: #2ecc71; --accent-red: #ff4757; --accent-blue: #1e90ff; --accent-gold: #ffa502;
+            --accent-purple: #a55eea; --accent-cursed: #ff6b81; --accent-grey: #7f8c8d;
+            --accent-shield: #3498db; --accent-poison: #00b894;
+        }
+        body {
+            background: #000; color: var(--text-main); font-family: 'Segoe UI', 'Roboto', sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100vh; margin: 0; overflow: hidden; user-select: none;
+        }
+        #game-container {
+            width: 100%; max-width: 600px; height: 100vh;
+            background-color: #111; box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column; padding: 10px; box-sizing: border-box;
+            position: relative; perspective: 800px; border: 2px solid #111; transition: border-color 0.5s;
+        }
+
+        /* --- 菜单 --- */
+        #menu-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 10, 10, 0.98); z-index: 300;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .top-bar-btn {
+            position: absolute; top: 20px; background: transparent; border: 1px solid #444; color: #888;
+            padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.8rem; transition:0.2s;
+        }
+        .top-bar-btn:hover { border-color: #fff; color: #fff; }
+        #lang-btn { right: 20px; }
+        #achieve-btn { left: 20px; border-color: var(--accent-gold); color: var(--accent-gold); }
+
+        #settings-btn {
+            position: absolute; top: 15px; right: 15px; z-index: 100;
+            background: #222; border: 1px solid #444; color: #ccc;
+            width: 35px; height: 35px; border-radius: 50%; cursor: pointer; font-size: 1.2rem;
+            display: flex; align-items: center; justify-content: center; transition: 0.2s;
+        }
+        #settings-btn:hover { background: #444; color: #fff; border-color: #fff; transform: rotate(90deg); }
+
+        .menu-btn {
+            background: linear-gradient(180deg, #333, #222); border: 1px solid #555; color: #fff;
+            padding: 15px 40px; font-size: 1.1rem; margin: 8px; cursor: pointer;
+            width: 80%; border-radius: 8px; font-weight: bold; transition: 0.2s; box-shadow: 0 4px 0 #111;
+        }
+        .menu-btn:active { transform: translateY(4px); box-shadow: none; }
+        .menu-btn:hover { border-color: #888; background: #444; }
+        .menu-btn.continue { border-color: var(--accent-green); color: var(--accent-green); background: linear-gradient(180deg, #1a3320, #0d1a10); }
+        .menu-btn.danger { border-color: var(--accent-red); color: var(--accent-red); background: linear-gradient(180deg, #331a1a, #1a0d0d); }
+        .menu-btn.info { border-color: var(--accent-blue); color: var(--accent-blue); background: linear-gradient(180deg, #1a2533, #0d121a); }
+
+        #twist-toggle {
+            margin-bottom: 20px; cursor: pointer; padding: 12px 25px;
+            border: 2px solid #333; border-radius: 8px; color: #666; font-weight: bold;
+            transition: 0.3s; display: flex; align-items: center; gap: 10px;
+        }
+        #twist-toggle.active { border-color: var(--accent-cursed); background: rgba(214, 48, 49, 0.1); color: var(--accent-cursed); }
+        .checkbox-fake { width: 18px; height: 18px; border: 2px solid currentColor; border-radius: 4px; display: inline-block; position: relative; }
+        #twist-toggle.active .checkbox-fake::after { content:'✔'; position:absolute; top:-3px; left:2px; font-size:14px; }
+
+        /* --- 弹窗通用 --- */
+        .modal-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.95); z-index: 400;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            animation: fadeIn 0.3s;
+        }
+        .talent-container { display: flex; gap: 10px; width: 98%; justify-content: center; align-items: stretch; }
+        .talent-card {
+            background: #222; border: 1px solid #444; width: 32%; padding: 20px 10px; border-radius: 8px;
+            cursor: pointer; text-align: center; transition: 0.2s;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: auto; min-height: 160px; position: relative;
+        }
+        .talent-card:hover { border-color: var(--accent-green); background: #2a2a2a; transform: translateY(-5px); }
+        .talent-icon { font-size: 2.5rem; margin-bottom: 10px; }
+        .talent-title { color: var(--accent-green); font-weight: bold; margin-bottom: 8px; font-size: 0.9rem; text-transform: uppercase;}
+        .talent-desc { color: #aaa; font-size: 0.75rem; line-height: 1.4; word-wrap: break-word; }
+
+        .curse-card {
+            background: #1a0505; border: 1px solid #500; width: 32%; padding: 20px 10px; border-radius: 8px;
+            cursor: pointer; text-align: center; transition: 0.2s; color: #fff;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .curse-card:hover { border-color: var(--accent-cursed); background: #2a0a0a; transform: translateY(-5px); box-shadow: 0 0 15px rgba(255, 71, 87, 0.2); }
+        .curse-title { color: var(--accent-cursed); font-weight: bold; margin-bottom: 10px; text-transform: uppercase; font-size: 0.9rem; }
+        .curse-desc { font-size: 0.75rem; color: #aaa; line-height: 1.4; }
+
+        /* --- 游戏内 --- */
+        .top-info-bar { display: flex; justify-content: space-between; align-items: stretch; margin-bottom: 10px; gap: 10px; margin-top: 25px;}
+        .boss-area { flex: 2; display:flex; flex-direction:column; gap:5px; }
+        
+        .boss-card { 
+            flex: 1; min-height: 60px;
+            background: #1a1a1a; border-left: 4px solid var(--accent-red); padding: 10px 15px; border-radius: 4px; 
+            display: flex; flex-direction: column; justify-content: center; position: relative;
+        }
+        .boss-card.enraged { background: #300; border-color: #f00; box-shadow: inset 0 0 20px #500; }
+        .boss-name { font-size: 1rem; font-weight: 800; color: var(--accent-red); letter-spacing: 1px;}
+        .boss-passive { font-size: 0.7rem; color: #666; }
+        
+        #enemy-items-display {
+            display: flex; gap: 4px; padding: 0 5px; min-height: 25px; align-items: center;
+        }
+        .enemy-item-icon {
+            width: 24px; height: 24px; background: #222; border: 1px solid #444; color: #aaa;
+            border-radius: 4px; display: flex; align-items: center; justify-content: center;
+            font-size: 14px; position: relative; cursor: help;
+        }
+        .enemy-item-icon:hover { border-color: var(--accent-red); color: #fff; background: #333; }
+        .enemy-item-tooltip {
+            visibility: hidden; opacity: 0; width: 140px; background: rgba(0,0,0,0.95);
+            border: 1px solid var(--accent-red); color: #fff; padding: 8px; border-radius: 4px;
+            position: absolute; top: 100%; left: 0; z-index: 200; pointer-events: none;
+            font-size: 0.7rem; text-align: left; transition: 0.2s;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+        .enemy-item-icon:hover .enemy-item-tooltip { visibility: visible; opacity: 1; }
+
+        #boss-taunt {
+            position: absolute; bottom: -35px; left: 10px; background: #fff; color: #000;
+            padding: 5px 15px; border-radius: 15px; font-size: 0.8rem; font-weight: bold;
+            opacity: 0; transition: 0.3s; pointer-events: none; white-space: nowrap; z-index: 50;
+        }
+        #boss-taunt::before { content:''; position: absolute; top:-5px; left:10px; border-width:0 5px 5px; border-style:solid; border-color: transparent transparent #fff; }
+        #boss-taunt.show { opacity: 1; transform: translateY(-5px); }
+
+        .event-bar { flex: 1; background: #1a1a1a; border: 1px solid #333; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; cursor: help; }
+        .event-val { font-size: 0.8rem; color: var(--accent-gold); font-weight: bold; text-align: center; line-height: 1; }
+        .event-tooltip { visibility: hidden; opacity: 0; width: 180px; background: rgba(0,0,0,0.95); border: 1px solid var(--accent-gold); color: #fff; padding: 10px; border-radius: 6px; position: absolute; top: 110%; right: 0; z-index: 100; transition: 0.2s; pointer-events: none; text-align: left; }
+        .event-bar:hover .event-tooltip { visibility: visible; opacity: 1; }
+
+        #table-area { flex-grow: 1; background: radial-gradient(#222, #111); border-radius: 12px; border: 1px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 10px; position: relative; transition: border-color 0.3s;}
+        #gun-display { 
+            font-size: 5rem; margin-bottom: 5px; transition: transform 0.1s ease-out; 
+            filter: drop-shadow(0 15px 15px rgba(0,0,0,0.6)); transform-style: preserve-3d; cursor: crosshair;
+        }
+        #ammo-tracker { font-family: 'Courier New', monospace; font-weight: bold; font-size: 1.1rem; color: #fff; background: rgba(0,0,0,0.6); padding: 5px 20px; border-radius: 20px; border: 1px solid #555; letter-spacing: 2px; }
+        .fog-text { letter-spacing: 0px !important; color: #888 !important; }
+
+        #history-display { display: flex; gap: 6px; margin-top: 5px; height: 20px; align-items: center; opacity: 0.8; }
+        .hist-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #555; }
+        .hist-live { background: var(--accent-red); border-color: var(--accent-red); box-shadow: 0 0 5px var(--accent-red); }
+        .hist-blank { background: #555; border-color: #888; }
+        .hist-unknown { background: transparent; border: 0; color: var(--accent-gold); font-weight: bold; font-size: 12px; line-height: 12px; }
+        .hist-hidden .hist-live, .hist-hidden .hist-blank { background: #333 !important; border-color: #444 !important; box-shadow: none !important; }
+
+        #chamber-display { display: flex; gap: 8px; margin-top: 5px; height: 30px; }
+        .shell { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; border: 1px solid #444; background: #222; color: #666; transition:0.3s; }
+        .shell.live { border-color: var(--accent-red); background: #c0392b; color: #000;} 
+        .shell.blank { border-color: var(--accent-blue); background: #2980b9; color: #fff;}
+        .fog-active .shell.live, .fog-active .shell.blank { background: #444 !important; border-color: #666 !important; color: transparent !important; }
+
+        #info-text { color: var(--accent-gold); text-align: center; font-size: 0.95rem; font-weight: bold; padding: 0 20px; min-height: 40px; display: flex; align-items: center; justify-content: center; margin-top: 10px; }
+        
+        #items-area { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; width: 100%;}
+        .item-btn { background: #222; border: 1px solid #333; border-radius: 8px; height: 50px; position: relative; cursor: pointer; display: flex; align-items: center; justify-content: center; overflow: visible; }
+        .item-icon { font-size: 1.4rem; margin-bottom: 2px;} .item-name { font-size: 0.6rem; color: #777; text-transform: uppercase;}
+        .item-badge { position: absolute; top: -5px; right: -5px; background: var(--accent-blue); color: #fff; font-size: 0.7rem; font-weight: bold; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid #111; display: none; }
+        .item-btn:hover:not(:disabled) { background: #333; border-color: #666; transform: translateY(-2px); z-index: 10; }
+        .item-btn:disabled { opacity: 0.2; filter: grayscale(1); }
+        .item-tooltip { visibility: hidden; opacity: 0; width: 160px; background: rgba(0,0,0,0.95); color: #fff; border-radius: 6px; padding: 10px; position: absolute; z-index: 20; bottom: 115%; left: 50%; margin-left: -80px; border: 1px solid var(--accent-blue); pointer-events: none; transition: 0.2s; text-align: center; }
+        .item-btn:hover .item-tooltip { visibility: visible; opacity: 1; }
+        
+        .item-deceptive { filter: grayscale(1) opacity(0.6); }
+
+        #bottom-panel { display: flex; flex-direction: column; gap: 8px; }
+        .hp-container { display: flex; justify-content: space-between; padding: 0 5px; position: relative; align-items: flex-end;}
+        .hp-label { font-size: 0.7rem; font-weight: bold; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px;}
+        .hp-bar { display: flex; gap: 4px; }
+        .hp-point { width: 14px; height: 10px; background: #333; border-radius: 2px; box-shadow: inset 0 0 2px #000; }
+        .hp-point.demon-active { background: var(--accent-red); box-shadow: 0 0 5px var(--accent-red); }
+        .hp-point.you-active { background: var(--accent-green); box-shadow: 0 0 5px var(--accent-green); }
+        .hp-point.shielded { border: 2px solid var(--accent-shield); box-sizing: border-box; }
+        
+        .lives-wrapper { display: flex; gap: 5px; margin-bottom: 5px; font-size: 0.9rem; }
+        .life-heart { color: #555; transition: 0.3s; }
+        .life-active { color: #ff4757; text-shadow: 0 0 5px #ff4757; }
+
+        .you-area-hover { cursor: help; }
+        .my-talent-tooltip {
+            visibility: hidden; opacity: 0; position: absolute; bottom: 100%; right: 0;
+            background: rgba(10,10,10,0.98); border: 1px solid var(--accent-green);
+            padding: 10px; width: 200px; border-radius: 8px; z-index: 100;
+            transition: 0.2s; pointer-events: none; text-align: left;
+            margin-bottom: 10px;
+        }
+        .you-area-hover:hover .my-talent-tooltip { visibility: visible; opacity: 1; }
+
+        #controls { display: flex; gap: 10px; height: 60px; }
+        .action-btn { flex: 1; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: visible; transition: 0.1s;}
+        .btn-self { background: linear-gradient(135deg, #27ae60, #2ecc71); } .btn-enemy { background: linear-gradient(135deg, #c0392b, #e74c3c); }
+        .action-btn:disabled { background: #222 !important; color: #444 !important; }
+        .action-btn small { font-size: 0.7rem; opacity: 0.7; font-weight: normal; margin-top:2px;}
+        .cursed-btn { background: linear-gradient(135deg, #8e44ad, #2c3e50) !important; border: 2px solid #9b59b6 !important; animation: glitch 0.5s infinite; }
+        @keyframes glitch { 0% { transform: translate(0,0); } 20% { transform: translate(-2px, 1px); } 100% { transform: translate(0,0); } }
+        
+        #event-splash { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.95); z-index: 250; display: none; flex-direction: column; align-items: center; justify-content: center; animation: fadeIn 0.3s; }
+        .event-splash-card { width: 80%; height: 40%; background: linear-gradient(135deg, #1a1a1a, #000); border: 2px solid var(--accent-gold); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 60px rgba(241, 196, 15, 0.3); transform: scale(0.8); animation: popIn 0.5s forwards; }
+        @keyframes popIn { to { transform: scale(1); } }
+        .splash-title { color: var(--accent-gold); font-size: 2rem; font-weight: 900; margin-bottom: 15px; text-transform: uppercase; text-shadow: 0 0 10px black; text-align: center;}
+        .splash-desc { color: #ccc; font-size: 1rem; text-align: center; padding: 0 20px; line-height: 1.5; }
+
+        /* 🔥 Toast Notification Styles */
+        #toast-area {
+            position: absolute; bottom: 120px; right: 20px;
+            display: flex; flex-direction: column; gap: 10px; z-index: 600; pointer-events: none;
+        }
+        .toast-card {
+            background: rgba(20, 20, 20, 0.95); border-left: 4px solid var(--accent-gold);
+            color: #fff; padding: 12px 20px; border-radius: 4px; display: flex; align-items: center; gap: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5); animation: toastSlideIn 0.4s ease-out;
+            min-width: 200px; backdrop-filter: blur(5px);
+        }
+        .toast-icon { font-size: 1.5rem; }
+        .toast-info { display: flex; flex-direction: column; }
+        .toast-title { font-size: 0.7rem; color: #888; text-transform: uppercase; font-weight: bold; }
+        .toast-name { font-size: 1rem; color: var(--accent-gold); font-weight: bold; }
+        @keyframes toastSlideIn { from { transform: translateX(50px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes toastFadeOut { to { transform: translateY(-10px); opacity: 0; } }
+
+        .settings-content { background: #1a1a1a; border: 1px solid #444; padding: 25px; border-radius: 12px; width: 80%; max-width: 320px; display: flex; flex-direction: column; gap: 15px; align-items: center; box-shadow: 0 0 40px rgba(0,0,0,0.8); }
+        .setting-row { display: flex; justify-content: space-between; align-items: center; width: 100%; color: #ddd; font-weight: bold; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 34px; border: 1px solid #555; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent-green); border-color: var(--accent-green); }
+        input:checked + .slider:before { transform: translateX(24px); }
+
+        .shaking { animation: shake 0.3s; }
+        @keyframes shake { 0% { transform: translate(1px, 1px); } 50% { transform: translate(-3px, -2px); } 100% { transform: translate(0, 0); } }
+        .flash-red { animation: flash 0.2s; }
+        @keyframes flash { 0% { background: rgba(255,0,0,0.3); } 100% { background: transparent; } }
+        
+        #achieve-popup { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: linear-gradient(90deg, #ffcc00, #ffaa00); color: #000; padding: 8px 25px; border-radius: 50px; font-weight: bold; box-shadow: 0 5px 20px rgba(0,0,0,0.5); z-index: 500; display: none; align-items: center; gap: 10px; animation: slideDown 0.5s; }
+        @keyframes slideDown { from { top: -50px; } to { top: 20px; } }
+        .achieve-list { width: 90%; max-height: 60%; overflow-y: auto; display: grid; grid-template-columns: 1fr; gap: 8px; padding: 10px; }
+        .achieve-item { background: #1a1a1a; border: 1px solid #333; padding: 10px; border-radius: 6px; display: flex; align-items: center; gap: 15px; opacity: 0.5; filter: grayscale(1); }
+        .achieve-item.unlocked { opacity: 1; filter: grayscale(0); border-color: var(--accent-gold); background: rgba(255, 215, 0, 0.05); }
+        .ach-icon { font-size: 1.5rem; } .ach-info { display:flex; flex-direction:column; gap:2px; } .ach-info div:first-child { font-weight:bold; color:#ddd; font-size:0.8rem; } .ach-info div:last-child { font-size:0.65rem; color:#888; }
+        
+        #help-content { width: 90%; height: 85%; overflow-y: auto; background: #1a1a1a; border: 1px solid #444; padding: 20px; border-radius: 8px; box-sizing: border-box; text-align: left; }
+        .help-section { margin-bottom: 30px; border-bottom: 1px solid #333; padding-bottom: 15px; }
+        .help-h2 { color: var(--accent-gold); font-size: 1.4rem; margin-top: 0; margin-bottom: 15px; border-left: 4px solid var(--accent-gold); padding-left: 10px; }
+        .help-p { color: #aaa; font-size: 0.9rem; line-height: 1.6; margin: 5px 0; }
+        
+        #overlay { background: rgba(0,0,0,0.98) !important; z-index: 500; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        #win-title { font-size: 4rem; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 5px; text-shadow: 0 0 30px currentColor; text-align: center; }
+        #win-comment { font-size: 1rem; color: #aaa; margin-bottom: 20px; font-style: italic; text-align: center; max-width: 80%; }
+        #win-desc { font-size: 1.2rem; color: #fff; margin-bottom: 30px; text-align: center; }
+        .card { background: #222; color: #fff; border: 1px solid #555; border-radius: 8px; padding: 20px 10px; width: 30%; cursor: pointer; text-align: center; transition: 0.2s; }
+        .card:hover { border-color: var(--accent-gold); background: #333; transform: scale(1.05); }
+        #restart-btn { display: none; margin-top: 20px; font-size: 1rem; padding: 15px 40px; width: auto; border: 1px solid #555; background: #222; color: #fff; border-radius: 50px; cursor: pointer; transition: 0.2s; }
+        #restart-btn:hover { background: #fff; color: #000; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="menu-screen">
+        <button id="achieve-btn" class="top-bar-btn" style="left:20px" onclick="showAchievements()">🏆 0/30</button>
+        <button id="lang-btn" class="top-bar-btn" onclick="toggleLanguage()">🌐 EN / 中</button>
+        
+        <h1 style="color:#e74c3c; font-size:3.5rem; margin-bottom:5px; text-align:center;">BUCKSHOT<br>REBORN</h1>
+        <div id="subtitle-fix" style="color:#666; margin-bottom:30px;">Dual Lives Update</div>
+        
+        <div id="twist-toggle" onclick="toggleTwist()">
+            <div class="checkbox-fake"></div> 
+            <span id="txt-twist">TWISTED MODE</span>
+        </div>
+
+        <button class="menu-btn continue" onclick="loadGame()" id="btn-continue" style="display:none;">▶ CONTINUE</button>
+        <button class="menu-btn" onclick="preStartGame('pve')" id="btn-pve">💀 单人战役</button>
+        <button class="menu-btn" onclick="preStartGame('pvp')" id="btn-pvp">⚔️ 双人对战</button>
+        <button class="menu-btn info" onclick="showHelp()">📖 玩法说明</button>
+    </div>
+
+    <div id="help-screen" class="modal-overlay">
+        <div id="help-content">
+            <h1 style="color:#fff; text-align:center; border-bottom:1px solid #333; padding-bottom:15px;">📖 游戏指南</h1>
+            <div class="help-section">
+                <h2 class="help-h2">新机制</h2>
+                <p class="help-p">1. <strong>Boss 暴走修正：</strong> 现在的 Boss 每条命只会暴走一次，不会因回血重复触发。</p>
+                <p class="help-p">2. <strong>道具提示：</strong> 获得道具时会有弹窗提示。</p>
+                <p class="help-p">3. <strong>知己知彼：</strong> 现在可以直接看到 Boss 的道具栏。</p>
+            </div>
+            <button class="menu-btn" style="width:100%; margin:10px 0 0 0;" onclick="closeHelp()">关闭</button>
+        </div>
+    </div>
+
+    <div id="talent-screen" class="modal-overlay">
+        <h2 id="title-talent" style="color:#fff; margin-bottom:20px;">CHOOSE TALENT</h2>
+        <div class="talent-container" id="talent-grid-box"></div>
+    </div>
+
+    <div id="pact-screen" class="modal-overlay">
+        <h2 id="title-pact" style="color:var(--accent-cursed); margin-bottom:10px;">DARK PACT</h2>
+        <p id="pact-desc" style="color:#999; margin-bottom:20px; font-size:0.8rem;">High Risk, High Reward.</p>
+        <div class="talent-container" id="pact-grid-box"></div>
+        <button id="btn-nodeal" class="top-bar-btn" style="position:static; margin-top:20px; border-color:#666; color:#666;" onclick="selectPact(null)">NO DEAL</button>
+    </div>
+    
+    <div id="settings-screen" class="modal-overlay">
+        <div class="settings-content">
+            <h2 id="setting-paused" style="color:#fff; margin:0;">PAUSED</h2>
+            <div class="setting-row">
+                <span id="txt-sound">Sound Effects</span>
+                <label class="switch">
+                    <input type="checkbox" id="sound-toggle" onchange="toggleSound()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <hr style="width:100%; border:0; border-top:1px solid #444; margin:5px 0;">
+            <button class="menu-btn" style="width:100%; margin:0; font-size:1rem;" onclick="closeSettings()">▶ RESUME</button>
+            <button class="menu-btn" style="width:100%; margin:0; font-size:1rem;" onclick="exitGame()">🏠 MAIN MENU</button>
+            <button class="menu-btn danger" style="width:100%; margin:0; font-size:1rem;" onclick="giveUpGame()">🏳️ GIVE UP</button>
+        </div>
+    </div>
+
+    <div id="achieve-screen" class="modal-overlay">
+        <h2 style="color:var(--accent-gold); margin-bottom:10px;">ACHIEVEMENTS</h2>
+        <div class="achieve-list" id="achieve-list-container"></div>
+        <button class="top-bar-btn" style="position:static; margin-top:15px; border-color:#fff; color:#fff;" onclick="closeAchieve()">CLOSE</button>
+    </div>
+    <div id="achieve-popup"><span style="font-size:1.5rem">🏆</span><div><div style="font-size:0.7rem; text-transform:uppercase;">Unlocked</div><div id="achieve-pop-name" style="font-size:0.9rem;">...</div></div></div>
+
+    <div id="event-splash">
+        <div class="event-splash-card">
+            <div class="splash-title" id="splash-title">EVENT</div>
+            <div class="splash-desc" id="splash-desc">...</div>
+        </div>
+    </div>
+
+    <div id="toast-area"></div>
+
+    <div id="overlay">
+        <h2 id="win-title">VICTORY</h2>
+        <div id="win-comment">"..."</div>
+        <div id="win-desc">...</div>
+        <div style="display:flex; width:100%; justify-content:center; gap:10px; flex-wrap:wrap;" id="card-display"></div>
+        <button id="restart-btn" onclick="showMenu()">🏠 MAIN MENU</button>
+    </div>
+
+    <button id="settings-btn" onclick="openSettings()">⚙️</button>
+    
+    <div class="top-info-bar">
+        <div class="boss-area">
+            <div class="boss-card" id="boss-card">
+                <div class="boss-name" id="boss-name-display">UNKNOWN</div>
+                <div class="boss-passive" id="boss-passive-display">...</div>
+                <div id="boss-taunt">You missed.</div>
+            </div>
+            <div id="enemy-items-display"></div>
+        </div>
+
+        <div class="event-bar">
+            <div style="font-size:0.6rem; color:#555; font-weight:bold;">EVENT</div>
+            <div class="event-val" id="active-event-name">NORMAL</div>
+            <div class="event-tooltip">
+                <h4 id="tooltip-event-title">Title</h4>
+                <p id="tooltip-event-desc">Description</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="table-area">
+        <div id="gun-display">🔫</div>
+        <div id="ammo-tracker">-- / --</div>
+        <div id="history-display"></div> 
+
+        <div id="chamber-display"></div>
+        <div id="info-text">System Ready...</div>
+    </div>
+
+    <div id="items-area"></div>
+
+    <div id="bottom-panel">
+        <div class="hp-container">
+            <div style="display:flex; flex-direction:column;">
+                <div class="lives-wrapper" id="lives-demon"></div>
+                <div class="hp-label" style="color:var(--accent-red);" id="label-demon">DEMON</div>
+                <div id="demon-hp" class="hp-bar"></div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end;" class="you-area-hover">
+                <div class="lives-wrapper" id="lives-you"></div>
+                <div class="hp-label" style="color:var(--accent-green);" id="label-you">YOU</div>
+                <div id="player-hp" class="hp-bar"></div>
+                <div class="my-talent-tooltip">
+                    <strong style="color:var(--accent-green)" id="hover-talent-name">NO TALENT</strong><br>
+                    <span style="font-size:0.7rem; color:#aaa" id="hover-talent-desc">...</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="controls">
+            <button id="btn-self" class="action-btn btn-self" onclick="activePlayerAction('self')">
+                <span id="txt-self">SHOOT SELF</span>
+                <small id="sub-self">Risk</small>
+            </button>
+            <button id="btn-enemy" class="action-btn btn-enemy" onclick="activePlayerAction('enemy')">
+                <span id="txt-enemy">SHOOT ENEMY</span>
+                <small id="sub-enemy">Damage</small>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const TEXT = {
+        zh: {
+            pve_btn: "💀 单人战役", pvp_btn: "⚔️ 双人对战", restart_btn: "🏠 返回主菜单",
+            btn_continue: "▶ 继续游戏", label_demon: "恶魔", label_p2: "P2", label_you: "你", label_p1: "P1",
+            wait: "等待...", ready: "系统就绪...", reload: "弹药装填完毕",
+            shot_live: "💥 实弹！{shooter} 造成 {dmg} 点伤害",
+            shot_blank: "💨 空弹。{shooter} 运气不错",
+            shot_blank_miss: "💨 空弹。{shooter} 错失机会",
+            safe_bet: "赌对了！保留回合", deal_success: "😈 契约达成！", deal_fail: "💀 契约失败！",
+            
+            // 🔥 Updated: Enhanced feedback for Jammer/Mirror/Tactician
+            item_jammed: "🚫 {item} 失效！受到干扰！", 
+            mirror_steal: "🔮 魔镜窃取了 {item} 的效果！",
+            tact_block: "🚫 战术家封锁了 {item}！",
+
+            ammo_fmt: "【 {live} 实弹 | {blank} 空弹 】",
+            resurrect: "✨ {name} 消耗一条命复活了！",
+            
+            btn_self: "对自己", btn_enemy: "对敌人", sub_self: "风险博弈", sub_enemy: "造成伤害",
+            twist_on: "☣ 扭曲模式 (开)", twist_off: "☣ 扭曲模式 (关)",
+            
+            i_magnifier: "放大镜", d_magnifier: "确认下一发子弹。", i_beer: "啤酒", d_beer: "退去当前子弹。",
+            i_saw: "锯子", d_saw: "下一发伤害翻倍。", i_smoke: "香烟", d_smoke: "回复 1 点生命值。",
+            i_cuffs: "手铐", d_cuffs: "跳过对手回合。", i_inverter: "逆转器", d_inverter: "转换子弹虚实。",
+            i_jammer: "干扰器", d_jammer: "废掉对手道具。", i_mirror: "魔镜", d_mirror: "窃取增益。",
+            i_preload: "预装弹", d_preload: "底部塞入一发实弹。", i_feint: "假动作", d_feint: "下一个道具无效但可见。",
+            i_safety: "保险栓", d_safety: "抵挡一次致死自伤。",
+            
+            i_hourglass: "缓刑沙漏", d_hourglass: "当前子弹移至最底部。",
+            i_visor: "假视镜", d_visor: "(PvP) 对手看到的下一次提示反转。",
+            i_delay_shell: "后效弹", d_delay_shell: "实弹伤害延迟 2 回合生效。",
+            i_death_chip: "临终筹码", d_death_chip: "若本轮死亡，对敌人造成 2 点伤害。",
+            i_adrenaline: "肾上腺素", d_adrenaline: "再次行动，但下回合扣 1 HP。",
+            i_phone: "神秘手机", d_phone: "查看未来随机一发子弹。",
+
+            mech_dud: "💨 哑弹！子弹受潮了，无人受伤。",
+            mech_jam: "🔥 卡壳！枪管过热，强制结束回合。",
+            mech_mutual: "⚖️ 同归于尽！临终筹码触发！",
+            win_draw: "平局", win_draw_desc: "没有人活着离开。",
+
+            b_butcher: "屠夫", p_butcher: "被动：实弹伤害 +1", b_gambler: "赌徒", p_gambler: "被动：最后必为实弹",
+            b_doctor: "瘟医", p_doctor: "被动：概率回血", b_tactician: "战术家", p_tactician: "被动：干扰首个道具",
+            b_player2: "P2", p_player2: "公平竞技",
+            
+            enrage_title: "⚠ 阶段二：暴走", enrage_butcher: "伤害 +2 | 获得锯子",
+            enrage_gambler: "盗取道具 | 弹药错乱", enrage_doctor: "紧急治疗 +2 HP", enrage_tactician: "封锁行动 | 获得手铐",
+
+            e_normal: "平静", ed_normal: "无特殊规则", e_overheat: "枪管过热", ed_overheat: "连续实弹伤害叠加",
+            e_blood: "血债血偿", ed_blood: "自伤加倍，无保留回合", e_shuffle: "空间错乱", ed_shuffle: "装填后弹舱打乱两次",
+            e_vision: "全息瞄准", ed_vision: "25% 概率显示子弹虚实",
+            e_fog: "迷雾回合", ed_fog: "历史失效，只显示总弹数", e_fair: "公平审判", ed_fair: "无法连续行动",
+            e_volatile: "不稳定弹药", ed_volatile: "空弹 30% 概率变实弹", e_sacrifice: "血祭", ed_sacrifice: "使用道具扣 1 HP",
+
+            buff_heal: "急救包", bd_heal: "HP 全回满", buff_hp: "防弹衣", bd_hp: "HP 上限 +1",
+            buff_box: "军火箱", bd_box: "随机道具 x4", buff_tech: "黑科技", bd_tech: "干扰器 + 魔镜",
+
+            talent_eye: "鹰眼", td_eye: "首发子弹 30% 明牌", talent_pack: "囤积者", td_pack: "初始道具 +1",
+            talent_luck: "赌圣", td_luck: "空弹必保留回合",
+            talent_pain: "痛觉适应", td_pain: "对自己实弹伤害-1", talent_alarm: "虚惊一场", td_alarm: "自伤空弹蓄力下一次",
+            talent_poker: "扑克脸", td_poker: "对手无法看历史记录", talent_mis: "误导", td_mis: "放大镜50%给假情报",
+            talent_ban: "禁忌", td_ban: "随机禁用2种道具", talent_quick: "快枪手", td_quick: "本轮不用道具则增伤",
+            talent_boom: "自爆", td_boom: "自伤空弹对敌造成伤害",
+
+            pact_flesh: "血肉筹码", pd_flesh: "最大HP-2。对自己空弹获护盾。",
+            pact_half: "半条命赌徒", pd_half: "HP上限锁定3。实弹伤害+1。",
+            pact_eerie: "诡异弹仓", pd_eerie: "每轮开始随机反转一发子弹。",
+            pact_echo: "回声子弹", pd_echo: "实弹 25% 概率返回弹仓。",
+            pact_eye: "欺诈之眼", pd_eye: "道具 50% 假失效，成功则翻倍。",
+            pact_acute: "急性死亡", pd_acute: "若回合未造成伤害，扣1生命。",
+            pact_strict: "不容失误", pd_strict: "对敌开空弹跳过下回合。",
+            pact_greed: "脆弱的贪婪", pd_greed: "最大HP-1。任意空弹得道具。",
+            pact_power: "混乱力量", pd_power: "实弹伤害+1。任意空弹洗牌。",
+
+            eval_perfect: "“外科手术般的精准。”", eval_clutch: "“死神刚才对你眨眼了。”",
+            eval_lucky: "“纯粹的狗屎运。”", eval_brutal: "“你是个疯子。”",
+            eval_sad: "“可怜的灵魂。”", eval_greedy: "“贪婪杀死了猫，和你。”",
+            
+            win_died: "你死了", win_vic: "胜利", win_kill: "被 {name} 击杀", win_reward: "击败 {name}，选择奖励：",
+            s_resume: "▶ 继续游戏", s_menu: "🏠 主菜单", s_giveup: "🏳️ 放弃", s_sound: "音效",
+            toast_gain: "获得道具", toast_gain_p2: "对手获得", 
+            ach_1: "成就:第一滴血", ad_1:"...",
+
+            subtitle_fix: "双命版本更新", title_talent: "选择天赋", title_pact: "黑暗契约", 
+            pact_desc: "高风险，高回报。", btn_nodeal: "拒绝契约", setting_paused: "暂停",
+            boss_unknown: "未知"
+        },
+        en: {
+            pve_btn: "💀 Campaign", pvp_btn: "⚔️ Versus", restart_btn: "🏠 MAIN MENU",
+            btn_continue: "▶ CONTINUE", label_demon: "DEMON", label_p2: "P2", label_you: "YOU", label_p1: "P1",
+            wait: "Waiting...", ready: "Ready...", reload: "Reloaded",
+            shot_live: "💥 LIVE! {shooter} deals {dmg} dmg", shot_blank: "💨 BLANK. {shooter} safe.",
+            shot_blank_miss: "💨 BLANK. Missed.", safe_bet: "Safe!", deal_success: "😈 DEAL MET!", deal_fail: "💀 DEAL FAILED!",
+            
+            // 🔥 Updated: Enhanced feedback for Jammer/Mirror/Tactician
+            item_jammed: "🚫 {item} JAMMED!", 
+            mirror_steal: "🔮 Mirror stole {item} effect!",
+            tact_block: "🚫 Tactician blocked {item}!",
+
+            ammo_fmt: "[ {live} LIVE | {blank} BLANK ]",
+            resurrect: "✨ {name} consumed a life to resurrect!",
+            
+            btn_self: "SHOOT SELF", btn_enemy: "SHOOT ENEMY", sub_self: "Gamble", sub_enemy: "Deal Dmg",
+            twist_on: "☣ TWISTED (ON)", twist_off: "☣ TWISTED (OFF)",
+
+            i_magnifier: "Magnifier", d_magnifier: "Check round.", i_beer: "Beer", d_beer: "Eject round.",
+            i_saw: "Hand Saw", d_saw: "2x Damage.", i_smoke: "Cigarettes", d_smoke: "Heal 1 HP.",
+            i_cuffs: "Handcuffs", d_cuffs: "Skip turn.", i_inverter: "Inverter", d_inverter: "Invert round.",
+            i_jammer: "Jammer", d_jammer: "Block item.", i_mirror: "Mirror", d_mirror: "Steal buff.",
+            i_preload: "Preload", d_preload: "Insert Live round at bottom.", i_feint: "Feint", d_feint: "Next item is fake.",
+            i_safety: "Safety", d_safety: "Prevent suicide death once.",
+            i_hourglass: "Hourglass", d_hourglass: "Move round.", i_visor: "Deceptive Visor", d_visor: "Fake clues.",
+            i_delay_shell: "Delayed Round", d_delay_shell: "Late Dmg.", i_death_chip: "Death Chip", d_death_chip: "Mutual destruction.",
+            i_adrenaline: "Adrenaline", d_adrenaline: "Act again, hurt later.", i_phone: "Phone", d_phone: "Check future.",
+
+            mech_dud: "💨 DUD! Wet powder.", mech_jam: "🔥 JAMMED! Overheated.", mech_mutual: "⚖️ MUTUAL DESTRUCTION!",
+            win_draw: "DRAW", win_draw_desc: "No survivors.",
+
+            b_butcher: "Butcher", p_butcher: "Passive: +1 DMG", b_gambler: "Gambler", p_gambler: "Passive: Rigged",
+            b_doctor: "Doctor", p_doctor: "Passive: Regen", b_tactician: "Tactician", p_tactician: "Passive: Jam",
+            b_player2: "P2", p_player2: "Fair Play",
+
+            enrage_title: "⚠ ENRAGE", enrage_butcher: "DMG+2 | Saw", enrage_gambler: "Steal | Shuffle",
+            enrage_doctor: "Heal +2 HP", enrage_tactician: "Lock | Cuffs",
+
+            e_normal: "Calm", ed_normal: "No special rules", e_overheat: "Overheat", ed_overheat: "Live shots increase DMG",
+            e_blood: "Blood Debt", ed_blood: "Self-shot: 2x DMG, No Turn Retention", e_shuffle: "Shuffle", ed_shuffle: "Chamber shuffled twice",
+            e_vision: "Holo-Sight", ed_vision: "25% chance to reveal round",
+            e_fog: "Fog", ed_fog: "History & Colors hidden", e_fair: "Fair Play", ed_fair: "No consecutive turns",
+            e_volatile: "Volatile Ammo", ed_volatile: "30% chance Blank becomes Live", e_sacrifice: "Sacrifice", ed_sacrifice: "Use Item costs 1 HP",
+
+            buff_heal: "Medkit", bd_heal: "Heal to Full", buff_hp: "Armor", bd_hp: "Max HP +1",
+            buff_box: "Ammo Box", bd_box: "4 Items", buff_tech: "High-Tech", bd_tech: "Jammer + Mirror",
+
+            talent_eye: "Eagle Eye", td_eye: "30% Reveal 1st Round", talent_pack: "Hoarder", td_pack: "Start +1 Item",
+            talent_luck: "Saint", td_luck: "Guaranteed Turn Keep",
+            talent_pain: "Adaptation", td_pain: "Self Live Dmg -1", talent_alarm: "False Alarm", td_alarm: "Self Blank boosts next Live",
+            talent_poker: "Poker Face", td_poker: "Hide history", talent_mis: "Mislead", td_mis: "50% Fake Magnifier",
+            talent_ban: "Embargo", td_ban: "Randomly ban 2 items", talent_quick: "Quick Draw", td_quick: "No item use = Dmg +1",
+            talent_boom: "Self-Destruct", td_boom: "Self Blank deals Dmg to enemy",
+
+            pact_flesh: "Flesh Chips", pd_flesh: "Max HP -2. Shield.", pact_half: "Half-Life", pd_half: "HP capped at 3.",
+            pact_eerie: "Eerie Mag", pd_eerie: "Flip 1 bullet.", pact_echo: "Echo Bullets", pd_echo: "Return Live.",
+            pact_eye: "Deceptive Eye", pd_eye: "Items 50% fake.", pact_acute: "Acute Death", pd_acute: "No Dmg = -1 HP.",
+            pact_strict: "No Mistakes", pd_strict: "Miss = Skip.", pact_greed: "Greed", pd_greed: "-1 Max HP. Item on Blank.",
+            pact_power: "Chaos Power", pd_power: "+1 Dmg. Shuffle on Blank.",
+
+            eval_perfect: "“Surgical precision.”", eval_clutch: "“Death just blinked.”",
+            eval_lucky: "“Pure dumb luck.”", eval_brutal: "“You are a maniac.”",
+            eval_sad: "“Poor soul.”", eval_greedy: "“Greed killed you.”",
+            
+            win_died: "YOU DIED", win_vic: "VICTORY", win_kill: "Killed by {name}", win_reward: "Defeated {name}. Reward:",
+            s_resume: "▶ RESUME", s_menu: "🏠 MAIN MENU", s_giveup: "🏳️ GIVE UP", s_sound: "Sound Effects",
+            toast_gain: "ITEM ACQUIRED", toast_gain_p2: "ENEMY GAINED",
+            ach_1: "First Blood", ad_1:"...",
+
+            subtitle_fix: "Dual Lives Update", title_talent: "CHOOSE TALENT", title_pact: "DARK PACT", 
+            pact_desc: "High Risk, High Reward.", btn_nodeal: "NO DEAL", setting_paused: "PAUSED",
+            boss_unknown: "UNKNOWN"
+        }
+    };
+
+    const BOSS_TAUNTS = {
+        butcher: { miss: ["Too weak.", "Is that it?", "Pathetic."], hit: ["I bleed...", "Again!", "Harder."], win: ["Next time.", "You got lucky."], taunt: ["I smell fear.", "Shoot. Now."] },
+        gambler: { miss: ["Bad luck?", "House wins.", "Did you count?"], hit: ["A lucky guess.", "Hey, watch the suit!"], win: ["I want a rematch.", "You cheated."], taunt: ["Feeling lucky?", "Odds are against you."] },
+        doctor: { miss: ["Missed diagnosis.", "Steady your hand.", "Pulse rising."], hit: ["Critical condition.", "I need a medic."], win: ["Flatline.", "Procedure failed."], taunt: ["This will hurt.", "Open wide."] },
+        tactician: { miss: ["Calculated.", "Predicted.", "Waste of ammo."], hit: ["Error in judgment.", "Adjusting..."], win: ["Impossible.", "Data corrupted."], taunt: ["Checkmate soon.", "Your move."] },
+        player2: { miss: ["LOL", ":)"], hit: ["Ouch", ":("], win: ["GG", "EZ"], taunt: ["..."] }
+    };
+
+    let curLang = 'zh';
+    let gameMode = 'pve'; 
+    let level = 1;
+    let magazine = []; 
+    let chamberKnowledge = []; 
+    let hp = { 1: 4, 2: 3 }; 
+    let maxHp = { 1: 4, 2: 3 };
+    let lives = { 1: 2, 2: 2 };
+    
+    let items = { 1: {}, 2: {} };
+    let currentItems = { 1: {}, 2: {} };
+    let statusEffects = { 1: { jammed: false, mirror: false, shield: 0 }, 2: { jammed: false, mirror: false, shield: 0 } };
+    
+    let isTwisted = false; 
+    let selectedTalent = null;
+    let selectedPact = null; 
+    let historyLog = []; 
+    let unlockedAchieves = JSON.parse(localStorage.getItem('br_achievements')) || [];
+    let soundEnabled = true;
+
+    let currentEvent = null;
+    let consecutiveLiveShots = 0; 
+    let tacticianTrapActive = false; 
+    let isDevilDealActive = false; 
+    let gameLock = false; 
+    let globalTimer = null; 
+
+    let bannedItems = [];
+    let falseAlarmBuff = 0;
+    let itemsUsedThisTurn = 0;
+    let damageDealtThisTurn = false;
+    let feintActive = false;
+    let safetyActive = false;
+    let beerCount = 0; 
+    let magnifierCount = 0; 
+
+    let delayedDamageQueue = { 1: [], 2: [] }; 
+    let deathChipActive = { 1: false, 2: false };
+    let visorActive = false; 
+    let adrenalineDebt = { 1: false, 2: false }; 
+    let nextShotIsDelayed = false; 
+
+    const ALL_ITEM_LIST = ['magnifier', 'beer', 'saw', 'smoke', 'cuffs', 'inverter', 'jammer', 'mirror', 'preload', 'feint', 'safety', 'hourglass', 'visor', 'delay_shell', 'death_chip', 'adrenaline', 'phone'];
+    let ITEM_LIST = [...ALL_ITEM_LIST]; 
+    const ITEM_ICONS = { 
+        magnifier:'🔍', beer:'🍺', saw:'🪚', smoke:'🚬', cuffs:'🔗', inverter:'🔄', 
+        jammer:'🚫', mirror:'🔮', preload:'⏳', feint:'🪤', safety:'🧷',
+        hourglass:'⏳', visor:'🎭', delay_shell:'🧪', death_chip:'⚰️', adrenaline:'💉', phone:'📱'
+    };
+    
+    let currentTurn = 1; 
+    let damageMultiplier = 1; 
+    let handCuffedTarget = 0; 
+    let currentBoss = null;
+
+    const EVENTS = [
+        { id: 'normal'}, { id: 'overheat'}, { id: 'blood'}, { id: 'shuffle'}, { id: 'vision'},
+        { id: 'fog'}, { id: 'fair'}, { id: 'volatile'}, { id: 'sacrifice'}
+    ];
+
+    const DEMON_ARCHETYPES = [
+        { id: 'butcher', style: 'aggressive', loadout: { saw: 2, beer: 1, mirror: 1 }, phase2: false },
+        { id: 'gambler', style: 'chaotic', loadout: { inverter: 2, magnifier: 1, jammer: 1 }, phase2: false },
+        { id: 'doctor', style: 'defensive', loadout: { smoke: 2, cuffs: 1, mirror: 1 }, phase2: false },
+        { id: 'tactician', style: 'standard', loadout: { jammer: 2, mirror: 1 }, phase2: false }
+    ];
+    
+    const TALENTS = [
+        { id: 'eye', key: 'talent_eye', desc: 'td_eye', icon: '👁️' },
+        { id: 'pack', key: 'talent_pack', desc: 'td_pack', icon: '🎒' },
+        { id: 'luck', key: 'talent_luck', desc: 'td_luck', icon: '🎲' },
+        { id: 'pain', key: 'talent_pain', desc: 'td_pain', icon: '🔥' },
+        { id: 'alarm', key: 'talent_alarm', desc: 'td_alarm', icon: '🎭' },
+        { id: 'poker', key: 'talent_poker', desc: 'td_poker', icon: '🃏' },
+        { id: 'mis', key: 'talent_mis', desc: 'td_mis', icon: '👁️‍🗨️' },
+        { id: 'ban', key: 'talent_ban', desc: 'td_ban', icon: '🚫' },
+        { id: 'quick', key: 'talent_quick', desc: 'td_quick', icon: '⛓️' },
+        { id: 'boom', key: 'talent_boom', desc: 'td_boom', icon: '💥' }
+    ];
+
+    const PACTS = [
+        { id: 'greed', key: 'pact_greed', desc: 'pd_greed', icon: '💰' },
+        { id: 'power', key: 'pact_power', desc: 'pd_power', icon: '🌩️' },
+        { id: 'flesh', key: 'pact_flesh', desc: 'pd_flesh', icon: '🩸' },
+        { id: 'half', key: 'pact_half', desc: 'pd_half', icon: '☠️' },
+        { id: 'eerie', key: 'pact_eerie', desc: 'pd_eerie', icon: '🔫' },
+        { id: 'echo', key: 'pact_echo', desc: 'pd_echo', icon: '🔄' },
+        { id: 'eye', key: 'pact_eye', desc: 'pd_eye', icon: '👁️' },
+        { id: 'acute', key: 'pact_acute', desc: 'pd_acute', icon: '⌛' },
+        { id: 'strict', key: 'pact_strict', desc: 'pd_strict', icon: '⚖️' }
+    ];
+
+    const buffPool = [
+        { id: 'heal', key: 'buff_heal', descKey: 'bd_heal' },
+        { id: 'hp_up', key: 'buff_hp', descKey: 'bd_hp' },
+        { id: 'supplies', key: 'buff_box', descKey: 'bd_box' },
+        { id: 'tech', key: 'buff_tech', descKey: 'bd_tech' }
+    ];
+    const ACHIEVEMENTS = [];
+    for(let i=1; i<=30; i++) ACHIEVEMENTS.push({ id: i, key: `ach_${i}` });
+
+    const gameContainer = document.getElementById('game-container');
+    const gunDisplay = document.getElementById('gun-display');
+
+    gameContainer.addEventListener('mousemove', (e) => {
+        if (gameLock || document.getElementById('menu-screen').style.display !== 'none' || document.getElementById('settings-screen').style.display !== 'none') return;
+        const rect = gameContainer.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const deltaX = (e.clientX - centerX) / (rect.width / 2);
+        const deltaY = (e.clientY - centerY) / (rect.height / 2);
+        gunDisplay.style.transform = `perspective(500px) rotateY(${deltaX * 15}deg) rotateX(${-deltaY * 10}deg)`;
+    });
+
+    gameContainer.addEventListener('mouseleave', () => {
+        if (!gameLock) gunDisplay.style.transform = 'perspective(500px) rotateY(0deg) rotateX(0deg)';
+    });
+
+    function playSound(type) { if (!soundEnabled) return; }
+    function toggleSound() { soundEnabled = document.getElementById('sound-toggle').checked; }
+
+    function showHelp() { document.getElementById('help-screen').style.display = 'flex'; }
+    function closeHelp() { document.getElementById('help-screen').style.display = 'none'; }
+
+    function saveGame() {
+        if (gameLock && lives[1] > 0 && lives[2] > 0) return;
+        if (lives[1] <= 0 || lives[2] <= 0) return; 
+
+        const gameState = {
+            hp, maxHp, lives, currentItems, magazine, chamberKnowledge,
+            level, currentTurn, currentBoss, currentEvent,
+            damageMultiplier, handCuffedTarget, statusEffects,
+            isTwisted, selectedTalent, selectedPact, gameMode, historyLog, soundEnabled,
+            bannedItems, falseAlarmBuff, itemsUsedThisTurn, safetyActive, beerCount, magnifierCount,
+            damageDealtThisTurn,
+            delayedDamageQueue, deathChipActive, visorActive, adrenalineDebt, nextShotIsDelayed
+        };
+        localStorage.setItem('br_save', JSON.stringify(gameState));
+    }
+
+    function loadGame() {
+        const saved = localStorage.getItem('br_save');
+        if(!saved) return;
+        try {
+            const s = JSON.parse(saved);
+            hp = s.hp; maxHp = s.maxHp; currentItems = s.currentItems;
+            magazine = s.magazine; chamberKnowledge = s.chamberKnowledge;
+            level = s.level; currentTurn = s.currentTurn; currentBoss = s.currentBoss;
+            currentEvent = s.currentEvent; damageMultiplier = s.damageMultiplier;
+            handCuffedTarget = s.handCuffedTarget; statusEffects = s.statusEffects;
+            isTwisted = s.isTwisted; selectedTalent = s.selectedTalent; selectedPact = s.selectedPact || null;
+            historyLog = s.historyLog || [];
+            gameMode = s.gameMode;
+            if(s.soundEnabled !== undefined) soundEnabled = s.soundEnabled;
+            
+            lives = s.lives || {1:2, 2:2};
+            
+            bannedItems = s.bannedItems || [];
+            falseAlarmBuff = s.falseAlarmBuff || 0;
+            itemsUsedThisTurn = s.itemsUsedThisTurn || 0;
+            safetyActive = s.safetyActive || false;
+            beerCount = s.beerCount || 0;
+            magnifierCount = s.magnifierCount || 0;
+            damageDealtThisTurn = s.damageDealtThisTurn || false;
+
+            delayedDamageQueue = s.delayedDamageQueue || { 1: [], 2: [] };
+            deathChipActive = s.deathChipActive || { 1: false, 2: false };
+            visorActive = s.visorActive || false;
+            adrenalineDebt = s.adrenalineDebt || { 1: false, 2: false };
+            nextShotIsDelayed = s.nextShotIsDelayed || false;
+
+            ITEM_LIST = ALL_ITEM_LIST.filter(i => !bannedItems.includes(i));
+            if (gameMode === 'pve') ITEM_LIST = ITEM_LIST.filter(i => i !== 'feint' && i !== 'visor'); 
+
+            document.getElementById('menu-screen').style.display = 'none';
+            document.getElementById('event-splash').style.display = 'none'; 
+            document.getElementById('overlay').style.display = 'none'; 
+            document.getElementById('talent-screen').style.display = 'none';
+            document.getElementById('pact-screen').style.display = 'none';
+            document.getElementById('settings-screen').style.display = 'none';
+            
+            gameLock = false; 
+            document.getElementById('gun-display').style.transform = "perspective(500px) rotate(0deg)";
+            document.getElementById('game-container').classList.remove('shaking');
+
+            renderLanguage(); renderChamberUI(); updateTurnUI(); updateHistoryUI();
+            
+            if (currentTurn === 1) { setControls(true); } 
+            else { setControls(false); if (gameMode === 'pve') { clearTimeout(globalTimer); globalTimer = setTimeout(aiLogic, 1000); } }
+            updateLog("GAME RESUMED");
+        } catch (e) { console.error("Save corrupted", e); clearSave(); }
+    }
+
+    function checkSave() {
+        const btn = document.getElementById('btn-continue');
+        btn.style.display = localStorage.getItem('br_save') ? 'block' : 'none';
+    }
+
+    function exitGame() {
+        if(lives[1] > 0 && lives[2] > 0) saveGame(); 
+        clearTimeout(globalTimer);
+        document.getElementById('settings-screen').style.display = 'none';
+        document.getElementById('menu-screen').style.display = 'flex';
+        checkSave();
+    }
+    
+    function giveUpGame() {
+        clearTimeout(globalTimer);
+        document.getElementById('settings-screen').style.display = 'none';
+        lives[1] = 0; hp[1] = 0; checkDead(); 
+    }
+
+    function clearSave() { localStorage.removeItem('br_save'); checkSave(); }
+
+    function openSettings() { document.getElementById('settings-screen').style.display = 'flex'; document.getElementById('sound-toggle').checked = soundEnabled; }
+    function closeSettings() { document.getElementById('settings-screen').style.display = 'none'; }
+
+    function t(key, params = {}) {
+        let str = TEXT[curLang][key];
+        if(!str) return key; 
+        for (let p in params) str = str.replace(`{${p}}`, params[p]);
+        return str;
+    }
+
+    function toggleLanguage() { curLang = (curLang === 'zh') ? 'en' : 'zh'; renderLanguage(); }
+    
+    function renderLanguage() {
+        document.getElementById('btn-pve').innerText = t('pve_btn');
+        document.getElementById('btn-pvp').innerText = t('pvp_btn');
+        document.getElementById('btn-continue').innerText = t('btn_continue');
+        document.getElementById('restart-btn').innerText = t('restart_btn');
+        document.getElementById('txt-twist').innerText = isTwisted ? t('twist_on') : t('twist_off');
+        document.getElementById('subtitle-fix').innerText = t('subtitle_fix');
+        
+        document.getElementById('txt-self').innerText = t('btn_self');
+        document.getElementById('txt-enemy').innerText = t('btn_enemy');
+        document.querySelector('#btn-self small').innerText = t('sub_self');
+        document.querySelector('#btn-enemy small').innerText = t('sub_enemy');
+
+        document.getElementById('label-demon').innerText = (gameMode==='pvp') ? t('label_p2') : t('label_demon');
+        document.getElementById('label-you').innerText = (gameMode==='pvp') ? t('label_p1') : t('label_you');
+
+        document.querySelector('.settings-content button:nth-of-type(1)').innerText = t('s_resume');
+        document.querySelector('.settings-content button:nth-of-type(2)').innerText = t('s_menu');
+        document.querySelector('.settings-content button:nth-of-type(3)').innerText = t('s_giveup');
+        document.getElementById('txt-sound').innerText = t('s_sound');
+        document.getElementById('setting-paused').innerText = t('setting_paused');
+
+        document.getElementById('title-talent').innerText = t('title_talent');
+        document.getElementById('title-pact').innerText = t('title_pact');
+        document.getElementById('pact-desc').innerText = t('pact_desc');
+        document.getElementById('btn-nodeal').innerText = t('btn_nodeal');
+
+        if (currentBoss) {
+            let prefix = (gameMode==='pvp') ? 'player2' : currentBoss.id;
+            let displayName = t('b_'+prefix);
+            if(displayName.startsWith('b_')) displayName = t('boss_unknown'); // Fallback
+            document.getElementById('boss-name-display').innerText = displayName;
+            document.getElementById('boss-passive-display').innerText = t('p_'+prefix);
+        } else {
+             document.getElementById('boss-name-display').innerText = t('boss_unknown');
+        }
+        if (currentEvent) {
+            document.getElementById('active-event-name').innerText = t('e_'+currentEvent.id);
+            document.getElementById('tooltip-event-title').innerText = t('e_'+currentEvent.id);
+            document.getElementById('tooltip-event-desc').innerText = t('ed_'+currentEvent.id);
+            document.getElementById('splash-title').innerText = t('e_'+currentEvent.id);
+            document.getElementById('splash-desc').innerText = t('ed_'+currentEvent.id);
+        }
+
+        if (selectedTalent) {
+            let tal = TALENTS.find(t=>t.id===selectedTalent);
+            if(tal) {
+                document.getElementById('hover-talent-name').innerText = t(tal.key);
+                document.getElementById('hover-talent-desc').innerText = t(tal.desc);
+            }
+        }
+        
+        updateAmmoTracker(); renderItemsGrid(); renderUI(); updateAchievementsUI(); checkSave();
+    }
+
+    function renderTalentSelection() {
+        const box = document.getElementById('talent-grid-box');
+        box.innerHTML = '';
+        let pool = [...TALENTS].sort(() => 0.5 - Math.random()).slice(0, 3);
+        pool.forEach(tal => {
+            let el = document.createElement('div');
+            el.className = 'talent-card';
+            el.onclick = () => selectTalent(tal.id);
+            el.innerHTML = `<div class="talent-icon">${tal.icon}</div><div class="talent-title">${t(tal.key)}</div><div class="talent-desc">${t(tal.desc)}</div>`;
+            box.appendChild(el);
+        });
+    }
+
+    function renderPactSelection() {
+        const box = document.getElementById('pact-grid-box');
+        box.innerHTML = '';
+        let pool = [...PACTS].sort(() => 0.5 - Math.random()).slice(0, 3);
+        pool.forEach(pact => {
+            let el = document.createElement('div');
+            el.className = 'curse-card';
+            el.onclick = () => selectPact(pact.id);
+            el.innerHTML = `<div class="talent-icon">${pact.icon}</div><div class="curse-title">${t(pact.key)}</div><div class="curse-desc">${t(pact.desc)}</div>`;
+            box.appendChild(el);
+        });
+    }
+
+    function unlockAchievement(id) {
+        if (!unlockedAchieves.includes(id)) {
+            unlockedAchieves.push(id);
+            localStorage.setItem('br_achievements', JSON.stringify(unlockedAchieves));
+            let pop = document.getElementById('achieve-popup');
+            let data = ACHIEVEMENTS.find(a => a.id === id);
+            document.getElementById('achieve-pop-name').innerText = t(data.key);
+            pop.style.display = 'flex';
+            setTimeout(() => pop.style.display = 'none', 3000);
+            updateAchievementsUI();
+        }
+    }
+
+    function showAchievements() { document.getElementById('achieve-screen').style.display = 'flex'; updateAchievementsUI(); }
+    function closeAchieve() { document.getElementById('achieve-screen').style.display = 'none'; }
+    function updateAchievementsUI() {
+        document.getElementById('achieve-btn').innerText = `🏆 ${unlockedAchieves.length}/${ACHIEVEMENTS.length}`;
+        let list = document.getElementById('achieve-list-container');
+        list.innerHTML = '';
+        ACHIEVEMENTS.forEach(a => {
+            let unlocked = unlockedAchieves.includes(a.id);
+            let div = document.createElement('div');
+            div.className = `achieve-item ${unlocked?'unlocked':''}`;
+            div.innerHTML = `<div class="ach-icon">🏆</div><div class="ach-info"><div>${t(a.key)}</div><div>${t(a.key.replace('ach','ad'))}</div></div>`;
+            list.appendChild(div);
+        });
+    }
+
+    function toggleTwist() { isTwisted = !isTwisted; document.getElementById('twist-toggle').classList.toggle('active'); renderLanguage(); }
+    
+    function preStartGame(mode) { 
+        gameMode = mode; clearSave();
+        if (mode === 'pve') { 
+            document.getElementById('menu-screen').style.display = 'none'; 
+            document.getElementById('talent-screen').style.display = 'flex'; 
+            renderTalentSelection(); 
+        } else { initGame(); } 
+    }
+    
+    function selectTalent(tal) { 
+        selectedTalent = tal; 
+        document.getElementById('talent-screen').style.display = 'none'; 
+        document.getElementById('pact-screen').style.display = 'flex'; 
+        renderPactSelection(); 
+    }
+
+    function selectPact(pact) {
+        selectedPact = pact;
+        document.getElementById('pact-screen').style.display = 'none';
+        initGame();
+    }
+
+    function initGame() {
+        document.getElementById('menu-screen').style.display = 'none';
+        level = 1;
+        bannedItems = [];
+        beerCount = 0; magnifierCount = 0;
+        
+        ITEM_LIST = [...ALL_ITEM_LIST];
+
+        if (gameMode === 'pve') {
+            ITEM_LIST = ITEM_LIST.filter(i => i !== 'feint' && i !== 'visor');
+        }
+
+        if (selectedTalent === 'ban') {
+            for(let i=0; i<2; i++) {
+                if (ITEM_LIST.length > 2) {
+                    let r = Math.floor(Math.random() * ITEM_LIST.length);
+                    bannedItems.push(ITEM_LIST[r]);
+                    ITEM_LIST.splice(r, 1);
+                }
+            }
+        }
+        
+        if (gameMode === 'pvp') { maxHp = { 1: 4, 2: 4 }; } else { maxHp = { 1: 4, 2: 3 }; }
+        
+        if (selectedPact === 'greed') maxHp[1] = Math.max(1, maxHp[1] - 1);
+        if (selectedPact === 'flesh') maxHp[1] = Math.max(1, maxHp[1] - 2);
+        if (selectedPact === 'half') maxHp[1] = 3;
+
+        hp = { 1: maxHp[1], 2: maxHp[2] };
+        lives = { 1: 2, 2: 2 }; 
+
+        if (gameMode === 'pve') {
+            let proto = DEMON_ARCHETYPES[Math.floor(Math.random() * DEMON_ARCHETYPES.length)];
+            currentBoss = JSON.parse(JSON.stringify(proto));
+            // 🔥 Reset Rage Phase on NEW GAME
+            currentBoss.phase2 = false;
+        } else { currentBoss = {id: 'player2'}; }
+        
+        renderLanguage(); startRound();
+    }
+
+    function startRound(isResurrection = false) {
+        clearTimeout(globalTimer); 
+        gameLock = false; 
+        document.getElementById('event-splash').style.display = 'none';
+        
+        historyLog = []; 
+        falseAlarmBuff = 0; 
+        safetyActive = false;
+        itemsUsedThisTurn = 0;
+        statusEffects[1].shield = 0; statusEffects[2].shield = 0; 
+        damageDealtThisTurn = false;
+
+        delayedDamageQueue = { 1: [], 2: [] };
+        deathChipActive = { 1: false, 2: false };
+        adrenalineDebt = { 1: false, 2: false };
+        nextShotIsDelayed = false;
+        visorActive = false;
+
+        updateHistoryUI();
+
+        if (gameMode === 'pvp') { hp[1] = maxHp[1]; hp[2] = maxHp[2]; } 
+        else { 
+            if(level > 1) { hp[1] = Math.min(hp[1], maxHp[1]); if(hp[1]<=0) hp[1]=4; }
+            hp[2] = maxHp[2]; 
+        }
+
+        if (!isResurrection) {
+            resetItems(1); resetItems(2);
+            let baseItems = (selectedTalent === 'pack') ? 2 : 1;
+            lootItems(1, 3 + baseItems); 
+            if (gameMode === 'pve') {
+                lootItems(2, 2);
+                for (let item in currentBoss.loadout) if(currentItems[2][item]!==undefined) currentItems[2][item] += currentBoss.loadout[item];
+            } else { lootItems(2, 4); }
+        }
+
+        statusEffects = { 1: { jammed: false, mirror: false, shield: 0 }, 2: { jammed: false, mirror: false, shield: 0 } };
+        tacticianTrapActive = (gameMode === 'pve' && currentBoss.id === 'tactician');
+        
+        document.getElementById('boss-card').classList.remove('enraged');
+        if (currentBoss && currentBoss.phase2) document.getElementById('boss-card').classList.add('enraged');
+
+        currentEvent = EVENTS[Math.floor(Math.random() * EVENTS.length)];
+        renderLanguage();
+
+        magazine = [];
+        let total = Math.floor(Math.random() * 4) + 4; 
+        let live = Math.floor(Math.random() * (total - 1)) + 1;
+        for(let i=0; i<live; i++) magazine.push(1);
+        for(let i=0; i<(total-live); i++) magazine.push(0);
+        for (let i = magazine.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [magazine[i], magazine[j]] = [magazine[j], magazine[i]]; }
+        
+        if (gameMode === 'pve' && currentBoss.id === 'gambler') magazine[0] = 1; 
+        if (currentEvent.id === 'shuffle') {
+             for (let i = magazine.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [magazine[i], magazine[j]] = [magazine[j], magazine[i]]; }
+        }
+
+        if (selectedPact === 'eerie' && magazine.length > 0) {
+            let r = Math.floor(Math.random() * magazine.length);
+            magazine[r] = (magazine[r] === 1) ? 0 : 1;
+            updateLog("🔫 PACT: Eerie Mag Triggered");
+        }
+
+        chamberKnowledge = new Array(magazine.length).fill(0);
+        if (selectedTalent === 'eye' && Math.random() < 0.3 && magazine.length>0) chamberKnowledge[magazine.length-1] = (magazine[magazine.length-1]===1) ? 1 : 2;
+        if (currentEvent.id === 'vision' && Math.random() < 0.25 && magazine.length>0) { let idx = magazine.length - 1; chamberKnowledge[idx] = magazine[idx] === 1 ? 1 : 2; }
+
+        if (currentEvent.id === 'fog') document.getElementById('table-area').classList.add('fog-active');
+        else document.getElementById('table-area').classList.remove('fog-active');
+
+        setControls(false); renderChamberUI(); updateAmmoTracker();
+        saveGame();
+
+        let splash = document.getElementById('event-splash');
+        if(!isResurrection) {
+             splash.style.display = 'flex';
+        } else {
+             updateLog(t('reload'));
+        }
+        
+        globalTimer = setTimeout(() => {
+            splash.style.display = 'none';
+            if(!isResurrection) updateLog(t('reload'));
+            currentTurn = 1; damageMultiplier = 1; handCuffedTarget = 0;
+            gameLock = false; renderUI(); handleTurnStart(); saveGame();
+        }, isResurrection ? 1000 : 2500);
+
+        renderUI(); updateTurnUI();
+    }
+
+    function activePlayerAction(targetType) { if(!gameLock) fire(targetType); }
+
+    function fire(targetType) {
+        setControls(false); gameLock = true; 
+        let gun = document.getElementById('gun-display');
+        gun.style.transform = "scale(1.3) rotate(-15deg)";
+        playSound('fire');
+        
+        globalTimer = setTimeout(() => {
+            let bullet = magazine.pop();
+            chamberKnowledge.pop(); 
+            
+            if (visorActive) { visorActive = false; updateLog("🎭 VISOR EXPIRED"); }
+
+            let isDud = (bullet === 1 && Math.random() < 0.05 && !isTwisted);
+            if (isDud) { bullet = 0; updateLog(t('mech_dud')); } 
+
+            renderChamberUI(); updateAmmoTracker(); 
+            
+            let isVolatileTrigger = false;
+            if (currentEvent.id === 'volatile' && bullet === 0 && Math.random() < 0.3) {
+                bullet = 1; isVolatileTrigger = true;
+            }
+
+            let isLive = (bullet === 1);
+            let baseDmg = 1;
+
+            if (isTwisted && isLive) baseDmg++;
+            if (selectedPact === 'power' && isLive) baseDmg++; 
+            if (selectedPact === 'half' && isLive) baseDmg++;
+
+            // 🔥 Fix: Only apply Enrage Bonus if phase2 is actually true
+            if (gameMode === 'pve' && currentBoss.id === 'butcher' && currentTurn === 2 && isLive && currentBoss.phase2) baseDmg += 2;
+            else if (gameMode === 'pve' && currentBoss.id === 'butcher' && currentTurn === 2 && isLive) baseDmg += 1;
+            
+            if (isLive && falseAlarmBuff > 0) { baseDmg += falseAlarmBuff; falseAlarmBuff = 0; }
+            if (isLive && selectedTalent === 'quick' && itemsUsedThisTurn === 0) baseDmg++;
+
+            let dmg = baseDmg * damageMultiplier; 
+            if (currentEvent.id === 'overheat' && isLive) dmg += consecutiveLiveShots++;
+            if (!isLive) consecutiveLiveShots = 0;
+
+            if (targetType === 'self' && isLive && selectedTalent === 'pain') dmg = Math.max(1, dmg - 1);
+
+            if (targetType === 'self' && isDevilDealActive) {
+                if (isLive) { dmg *= 2; updateLog(t('deal_fail')); playSound('dmg'); } 
+                else { lootItems(currentTurn, 2); updateLog(t('deal_success')); playSound('loot'); }
+                isDevilDealActive = false; 
+            }
+            if (targetType === 'self' && currentEvent.id === 'blood' && isLive) dmg *= 2;
+
+            if (nextShotIsDelayed && isLive) {
+                nextShotIsDelayed = false;
+                delayedDamageQueue[targetType === 'self' ? currentTurn : (currentTurn===1?2:1)].push({dmg: dmg, turns: 2});
+                dmg = 0; 
+                updateLog("🧪 POISON APPLIED (2 Turns)");
+                document.getElementById('table-area').style.borderColor = "#2ecc71";
+                setTimeout(()=>document.getElementById('table-area').style.borderColor = "#333", 500);
+            }
+
+            let historyVal = isLive ? 1 : 0;
+            if (visorActive && gameMode === 'pvp') historyVal = (historyVal === 1) ? 0 : 1;
+            historyLog.push(historyVal);
+            updateHistoryUI();
+
+            let shooter = currentTurn;
+            let opponent = (currentTurn === 1) ? 2 : 1;
+            let victim = (targetType === 'self') ? shooter : opponent;
+            let shooterName = getShooterName(shooter);
+
+            document.getElementById('game-container').classList.add('shaking');
+            globalTimer = setTimeout(()=> {
+                document.getElementById('game-container').classList.remove('shaking');
+                gun.style.transform = "perspective(500px) rotateY(0deg) rotateX(0deg)";
+            }, 300);
+
+            let skipTurnEffect = false;
+
+            if (isLive && !isDud) {
+                if (selectedPact === 'echo' && Math.random() < 0.25) {
+                    magazine.unshift(1); chamberKnowledge.unshift(0);
+                    updateAmmoTracker(); renderChamberUI();
+                    updateLog("🔄 ECHO BULLET RETURNED!");
+                }
+
+                if (statusEffects[victim].shield > 0 && dmg > 0) {
+                    statusEffects[victim].shield--;
+                    dmg = 0; 
+                    updateLog(`🛡️ ${getShooterName(victim)} BLOCKED DAMAGE!`);
+                }
+
+                if (dmg > 0) {
+                    if(isVolatileTrigger) updateLog("🧨 VOLATILE! " + t('shot_live', {shooter: shooterName, dmg: dmg}));
+                    else updateLog(t('shot_live', {shooter: shooterName, dmg: dmg}));
+                    playSound('bang');
+                    hp[victim] -= dmg;
+                    if(targetType === 'enemy') {
+                        document.getElementById('table-area').classList.add('flash-red');
+                        damageDealtThisTurn = true;
+                    }
+                }
+                
+                globalTimer = setTimeout(()=>document.getElementById('table-area').classList.remove('flash-red'), 200);
+                
+                if (shooter === 1 && victim === 1) unlockAchievement(21);
+                if (dmg >= 3 && hp[victim] <= 0 && targetType === 'enemy') unlockAchievement(27);
+
+                damageMultiplier = 1; renderUI();
+                
+                if (victim === 1 && hp[1] > 0 && dmg > 0) triggerTaunt('hit');
+
+                // 🔥 Trigger Enrage Logic (Modified)
+                // Only trigger if phase2 is FALSE. Once true, it stays true.
+                if (gameMode === 'pve' && victim === 2 && hp[2] < maxHp[2]/2 && !currentBoss.phase2) {
+                    triggerEnrage();
+                    globalTimer = setTimeout(() => !checkDead() && (magazine.length === 0 ? startRound() : switchTurn(opponent)), 2600);
+                    return;
+                }
+                if (checkDead()) return;
+                switchTurn(opponent); 
+            } else {
+                playSound('click');
+                damageMultiplier = 1; 
+
+                if (isDud) {
+                    triggerTaunt('miss');
+                    switchTurn(opponent);
+                    return;
+                }
+
+                if (targetType === 'self' && selectedPact === 'flesh') {
+                    statusEffects[1].shield++;
+                    updateLog("🩸 FLESH PACT: SHIELD UP");
+                }
+
+                if (targetType === 'enemy' && selectedPact === 'strict') {
+                    skipTurnEffect = true;
+                    updateLog("⚖️ STRICT PACT: SKIP TURN");
+                }
+
+                if (selectedPact === 'greed') { lootItems(currentTurn, 1); updateLog(t('c_greed_name')); }
+                if (isTwisted || selectedPact === 'power') {
+                    for (let i = magazine.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [magazine[i], magazine[j]] = [magazine[j], magazine[i]]; }
+                    chamberKnowledge.fill(0); renderChamberUI();
+                    historyLog.push(2); updateHistoryUI(); 
+                }
+
+                if (targetType === 'self') {
+                    unlockAchievement(3);
+                    if (hp[1] === 1) unlockAchievement(28);
+
+                    if (selectedTalent === 'alarm') falseAlarmBuff++;
+                    if (selectedTalent === 'boom') { 
+                        hp[opponent]--; updateLog("💥 SELF-DESTRUCT DMG"); 
+                        damageDealtThisTurn = true;
+                        renderUI(); if(checkDead()) return; 
+                    }
+
+                    if (currentEvent.id === 'blood' && selectedTalent !== 'luck') {
+                        updateLog(t('shot_blank', {shooter: shooterName}));
+                        triggerTaunt('miss'); 
+                        switchTurn(opponent);
+                    } 
+                    else if (currentEvent.id === 'fair') {
+                        updateLog(t('shot_blank', {shooter: shooterName}) + " (FAIR PLAY)");
+                        switchTurn(opponent);
+                    }
+                    else {
+                        updateLog(t('shot_blank', {shooter: shooterName}) + " " + t('safe_bet'));
+                        globalTimer = setTimeout(() => handleTurnStart(), 1000);
+                    }
+                } else {
+                    updateLog(t('shot_blank_miss', {shooter: shooterName}));
+                    triggerTaunt('miss');
+                    if(skipTurnEffect) handCuffedTarget = shooter; 
+                    switchTurn(opponent);
+                }
+            }
+
+            if (consecutiveLiveShots >= 3 && Math.random() < 0.2) {
+                updateLog(t('mech_jam'));
+                switchTurn((currentTurn === 1) ? 2 : 1);
+                return;
+            }
+
+            if (magazine.length === 0 && !checkDead()) {
+                globalTimer = setTimeout(startRound, 2000);
+            }
+        }, 500);
+    }
+
+    function triggerTaunt(type) {
+        if (!currentBoss || gameMode === 'pvp') return;
+        if (Math.random() > 0.4) return; 
+        
+        const quotes = BOSS_TAUNTS[currentBoss.id][type];
+        if (!quotes) return;
+        const txt = quotes[Math.floor(Math.random() * quotes.length)];
+        
+        const bubble = document.getElementById('boss-taunt');
+        bubble.innerText = txt;
+        bubble.classList.add('show');
+        setTimeout(() => bubble.classList.remove('show'), 3000);
+    }
+
+    function switchTurn(nextPlayer) {
+        if (currentTurn === 1 && selectedPact === 'acute' && !damageDealtThisTurn) {
+            hp[1]--;
+            updateLog("⌛ ACUTE DEATH: -1 HP");
+            renderUI();
+            if(checkDead()) return;
+        }
+
+        if (handCuffedTarget === nextPlayer) {
+            let name = getShooterName(nextPlayer);
+            updateLog(`🔗 ${name} (SKIP)`);
+            handCuffedTarget = 0; switchTurn((nextPlayer===1)?2:1); return;
+        }
+        currentTurn = nextPlayer;
+        handleTurnStart();
+    }
+
+    function handleTurnStart() {
+        gameLock = false; 
+        itemsUsedThisTurn = 0; 
+        damageDealtThisTurn = false;
+        updateTurnUI();
+
+        if (adrenalineDebt[currentTurn]) {
+            hp[currentTurn]--;
+            adrenalineDebt[currentTurn] = false;
+            updateLog("💉 ADRENALINE CRASH: -1 HP");
+            renderUI();
+            if (checkDead()) return;
+        }
+
+        let queue = delayedDamageQueue[currentTurn];
+        if (queue.length > 0) {
+            for (let i = queue.length - 1; i >= 0; i--) {
+                queue[i].turns--;
+                if (queue[i].turns <= 0) {
+                    hp[currentTurn] -= queue[i].dmg;
+                    updateLog(`🧪 POISON: -${queue[i].dmg} HP`);
+                    queue.splice(i, 1);
+                }
+            }
+            renderUI();
+            if (checkDead()) return;
+        }
+
+        if (gameMode === 'pve' && currentBoss.id === 'doctor' && currentTurn === 2) {
+            if (hp[2] < maxHp[2] && Math.random() < 0.3) { hp[2]++; updateLog("💊 Doctor Heals"); renderUI(); playSound('heal'); }
+        }
+        isDevilDealActive = false;
+        let btnSelf = document.getElementById('btn-self');
+        btnSelf.classList.remove('cursed-btn'); 
+        if (currentTurn === 1 && Math.random() < 0.3) {
+            isDevilDealActive = true; btnSelf.classList.add('cursed-btn'); 
+        }
+        if (gameMode === 'pve') {
+            if (currentTurn === 1) setControls(true);
+            else { setControls(false); globalTimer = setTimeout(aiLogic, 1500); }
+        } else { setControls(true); }
+        saveGame();
+    }
+
+    function useItem(name) {
+        if (gameLock) return;
+        if (gameMode === 'pve' && currentTurn === 1 && document.getElementById('btn-self').disabled) return;
+        if (currentItems[currentTurn][name] <= 0) return;
+
+        if (currentEvent.id === 'sacrifice') {
+            if (hp[currentTurn] > 1) { hp[currentTurn]--; renderUI(); }
+            else { updateLog("🩸 Too weak for sacrifice!"); return; }
+        }
+
+        currentItems[currentTurn][name]--;
+        
+        let isFakeFail = false;
+        let isDoubleEffect = false;
+        if (currentTurn === 1 && selectedPact === 'eye') {
+             if (Math.random() < 0.5) { isFakeFail = true; isDoubleEffect = true; }
+        }
+
+        if (feintActive) {
+            feintActive = false;
+            updateLog(`🎭 ${getShooterName(currentTurn)} FEINTS ${t('i_'+name)}`);
+            if (currentTurn === 1) unlockAchievement(18);
+            renderUI();
+            return;
+        }
+
+        itemsUsedThisTurn++;
+        playSound('item');
+        
+        if (currentTurn === 1) {
+            if(name==='smoke') unlockAchievement(2);
+            if(name==='magnifier') { magnifierCount++; if(magnifierCount>=3) unlockAchievement(5); }
+            if(name==='beer') { beerCount++; if(beerCount>=3) unlockAchievement(13); }
+            if(name==='mirror') unlockAchievement(15);
+            if(name==='preload') unlockAchievement(17);
+            if(name==='saw') unlockAchievement(22);
+            if(name==='cuffs') unlockAchievement(23);
+            if(name==='inverter') unlockAchievement(24);
+            if(name==='jammer') unlockAchievement(25);
+            let totalItems = 0; ITEM_LIST.forEach(k=> totalItems += currentItems[1][k]);
+            if(totalItems >= 6) unlockAchievement(26);
+        }
+
+        // 🔥 Updated: Tactician Block Feedback
+        if (gameMode === 'pve' && currentBoss.id === 'tactician' && currentTurn === 1 && tacticianTrapActive) {
+            tacticianTrapActive = false; 
+            updateLog(t('tact_block', {item: t('i_'+name)})); 
+            renderUI(); return; 
+        }
+
+        let opponent = (currentTurn === 1) ? 2 : 1;
+        let effectiveUser = currentTurn;
+        let userName = getShooterName(currentTurn);
+
+        // 🔥 Updated: Jammer Feedback
+        if (statusEffects[currentTurn].jammed) {
+            statusEffects[currentTurn].jammed = false; 
+            updateLog(t('item_jammed', {item: t('i_'+name)})); 
+            renderUI();
+            if (gameMode === 'pve' && currentTurn === 2) globalTimer = setTimeout(aiLogic, 1000); return; 
+        }
+
+        // 🔥 Updated: Mirror Feedback
+        if (statusEffects[opponent].mirror && ['smoke', 'beer', 'magnifier', 'saw', 'preload', 'hourglass', 'delay_shell', 'phone'].includes(name)) {
+            statusEffects[opponent].mirror = false; effectiveUser = opponent; 
+            updateLog(t('mirror_steal', {item: t('i_'+name)}));
+        }
+
+        let eName = getShooterName(effectiveUser); 
+
+        // -- Item Logic --
+        if (name === 'magnifier') {
+            let idx = magazine.length - 1; 
+            let isFake = (selectedTalent === 'mis' && Math.random() < 0.5);
+            let realState = magazine[idx];
+            let shownState = isFake ? (realState===1?0:1) : realState;
+
+            if (effectiveUser === 1) {
+                chamberKnowledge[idx] = (shownState === 1) ? 1 : 2; 
+                renderChamberUI();
+                updateLog(`🔍 ${shownState===1 ? "LIVE" : "BLANK"}`);
+            } else updateLog(`🔍 ${eName} checked...`);
+        } 
+        else if (name === 'beer') {
+            let b = magazine.pop(); chamberKnowledge.pop(); renderChamberUI(); updateAmmoTracker();
+            historyLog.push(b===1?1:0); updateHistoryUI(); 
+            updateLog(`🍺 ${eName}: ${b===1?"LIVE":"BLANK"}`);
+            if (magazine.length===0) globalTimer = setTimeout(startRound, 1500);
+        }
+        else if (name === 'saw') { 
+            damageMultiplier = isDoubleEffect ? 4 : 2; 
+            updateLog(`🪚 ${eName} SAW ${isDoubleEffect?'(x4!)':''}`); 
+        }
+        else if (name === 'smoke') { 
+            let healAmt = isDoubleEffect ? 2 : 1;
+            if (hp[effectiveUser] < maxHp[effectiveUser]) hp[effectiveUser] = Math.min(maxHp[effectiveUser], hp[effectiveUser]+healAmt); 
+            updateLog(`🚬 ${eName} +${healAmt} HP`); 
+        }
+        else if (name === 'cuffs') { handCuffedTarget = opponent; updateLog(`🔗 ${eName} CUFFS`); }
+        else if (name === 'inverter') { 
+            let v = magazine.pop(); magazine.push(v===1?0:1); chamberKnowledge[magazine.length-1] = 0; 
+            renderChamberUI(); updateLog(`🔄 ${eName} INVERT`); 
+            historyLog.push(2); updateHistoryUI(); 
+        }
+        else if (name === 'jammer') { 
+            statusEffects[opponent].jammed = true; updateLog(`🚫 ${eName} JAMMER`); 
+            if(effectiveUser===1) unlockAchievement(9);
+        }
+        else if (name === 'mirror') { statusEffects[currentTurn].mirror = true; updateLog(`🔮 ${eName} MIRROR`); }
+        else if (name === 'preload') {
+             magazine.unshift(1); chamberKnowledge.unshift(0);
+             updateAmmoTracker(); renderChamberUI();
+             updateLog(`⏳ ${eName} PRELOAD`);
+        }
+        else if (name === 'feint') { feintActive = true; updateLog(`🪤 ${eName} FEINT READY`); }
+        else if (name === 'safety') { safetyActive = true; updateLog(`🧷 ${eName} SAFETY ON`); }
+        else if (name === 'hourglass') {
+            if (magazine.length > 1) {
+                let shell = magazine.pop(); 
+                let know = chamberKnowledge.pop();
+                magazine.unshift(shell); 
+                chamberKnowledge.unshift(know);
+                updateLog(`⏳ ${eName} HOURGLASS`);
+                renderChamberUI(); 
+            } else { updateLog("⏳ USELESS NOW..."); }
+        }
+        else if (name === 'visor') { visorActive = true; updateLog(`🎭 ${eName} VISOR ON`); }
+        else if (name === 'delay_shell') { nextShotIsDelayed = true; updateLog(`🧪 ${eName} COATS BULLET`); }
+        else if (name === 'death_chip') { deathChipActive[currentTurn] = true; updateLog(`⚰️ ${eName} DEATH BARGAIN`); }
+        else if (name === 'adrenaline') { 
+            adrenalineDebt[currentTurn] = true; 
+            itemsUsedThisTurn = -1; 
+            updateLog(`💉 ${eName} RUSH! (-1 HP NEXT)`);
+            handCuffedTarget = opponent; 
+        }
+        else if (name === 'phone') {
+            let unknownIndices = [];
+            for(let i=0; i<magazine.length; i++) {
+                if(chamberKnowledge[i] === 0) unknownIndices.push(i);
+            }
+            if(unknownIndices.length > 0) {
+                let idx = unknownIndices[Math.floor(Math.random() * unknownIndices.length)];
+                let state = magazine[idx];
+                if(effectiveUser === 1) {
+                    chamberKnowledge[idx] = (state === 1) ? 1 : 2;
+                    renderChamberUI();
+                    updateLog(`📱 FUTURE: #${magazine.length - idx} is ${state===1?'LIVE':'BLANK'}`);
+                } else {
+                    updateLog(`📱 ${eName} HACKED FUTURE...`);
+                }
+            } else {
+                updateLog(`📱 NO SIGNAL...`);
+            }
+        }
+
+        renderUI(); saveGame();
+        
+        if (isFakeFail) {
+             updateLog("👁️ DECEPTIVE EYE: CRITICAL SUCCESS!");
+        }
+
+        if (gameMode === 'pve' && currentTurn === 2 && magazine.length > 0) globalTimer = setTimeout(aiLogic, 1500);
+    }
+
+    function aiLogic() {
+        if (magazine.length === 0 || hp[2] <= 0) return;
+        if (Math.random() < 0.05) { globalTimer = setTimeout(() => fire('self'), 1000); return; } 
+
+        if (statusEffects[2].jammed && currentItems[2].beer > 0) { useItem('beer'); return; }
+        let live = magazine.filter(b=>b===1).length;
+        let prob = live / magazine.length;
+        let nextKnown = chamberKnowledge[magazine.length-1];
+        if (nextKnown === 1) prob = 1; if (nextKnown === 2) prob = 0;
+
+        let inv = currentItems[2];
+        if (inv.beer > 0 && magazine.length > 2) { useItem('beer'); return; }
+        if (inv.saw > 0 && prob > 0.4) { useItem('saw'); return; }
+        if (hp[2] < maxHp[2] && inv.smoke > 0) { useItem('smoke'); return; }
+        if (inv.magnifier > 0 && nextKnown === 0) { useItem('magnifier'); return; }
+        if (inv.phone > 0 && magazine.length > 2) { useItem('phone'); return; }
+
+        let decision = 'self';
+        if (prob === 1) decision = 'enemy';
+        else if (prob === 0) decision = 'self';
+        else decision = (prob > 0.5) ? 'enemy' : 'self';
+        
+        globalTimer = setTimeout(() => fire(decision), 1000);
+    }
+
+    function updateAmmoTracker() {
+        let live = magazine.filter(b => b === 1).length;
+        let blank = magazine.filter(b => b === 0).length;
+        
+        if (currentEvent && currentEvent.id === 'fog') {
+             document.getElementById('ammo-tracker').innerText = `【 ??? | Total: ${magazine.length} 】`;
+             document.getElementById('ammo-tracker').classList.add('fog-text');
+        } else {
+             document.getElementById('ammo-tracker').innerText = t('ammo_fmt', {live: live, blank: blank});
+             document.getElementById('ammo-tracker').classList.remove('fog-text');
+        }
+    }
+
+    function updateHistoryUI() {
+        const container = document.getElementById('history-display');
+        container.innerHTML = '';
+        
+        let isHidden = (currentEvent && currentEvent.id === 'fog');
+        if (selectedTalent === 'poker' && gameMode === 'pvp') isHidden = true; 
+        if (isHidden) container.classList.add('hist-hidden');
+        else container.classList.remove('hist-hidden');
+
+        historyLog.forEach(val => {
+            let d = document.createElement('div');
+            d.className = 'hist-dot';
+            if (val === 1) d.classList.add('hist-live');
+            else if (val === 2) { d.classList.add('hist-unknown'); d.innerText='?'; }
+            else d.classList.add('hist-blank');
+            container.appendChild(d);
+        });
+    }
+
+    function renderChamberUI() {
+        let container = document.getElementById('chamber-display'); container.innerHTML = '';
+        for(let i=0; i < magazine.length; i++) {
+            let k = chamberKnowledge[i];
+            let div = document.createElement('div'); div.className = 'shell';
+            if (i === magazine.length - 1) div.classList.add('next');
+            if (k === 1) { div.classList.add('live'); div.innerText = '🔥'; }
+            else if (k === 2) { div.classList.add('blank'); div.innerText = '💨'; }
+            else { div.innerText = '?'; }
+            container.appendChild(div);
+        }
+    }
+
+    // 🔥 Show Toast Logic: 仅当 PID=1 (玩家) 时触发
+    function showItemToast(itemList, pid) {
+        if (pid !== 1) return; // FIX: Only show for player
+        if (!itemList || itemList.length === 0) return;
+        
+        const container = document.getElementById('toast-area');
+        let counts = {};
+        itemList.forEach(i => counts[i] = (counts[i] || 0) + 1);
+
+        let title = t('toast_gain');
+
+        for (let item in counts) {
+            let card = document.createElement('div');
+            card.className = 'toast-card';
+            card.innerHTML = `<div class="toast-icon">${ITEM_ICONS[item]}</div><div class="toast-info"><div class="toast-title">${title}</div><div class="toast-name">${t('i_'+item)} x${counts[item]}</div></div>`;
+            container.appendChild(card);
+            
+            setTimeout(() => {
+                card.style.animation = 'toastFadeOut 0.4s ease-in forwards';
+                setTimeout(() => card.remove(), 400);
+            }, 3000);
+        }
+    }
+
+    function renderUI() {
+        let drawHP = (pid, elId) => {
+            let h = '';
+            let styleClass = (pid === 1) ? 'you-active' : 'demon-active';
+            for(let i=0; i<maxHp[pid]; i++) {
+                let shieldClass = (statusEffects[pid].shield > 0 && i < hp[pid]) ? 'shielded' : '';
+                h += `<div class="hp-point ${i<hp[pid]?styleClass:''} ${shieldClass}"></div>`;
+            }
+            document.getElementById(elId).innerHTML = h;
+            
+            let lifeHtml = '';
+            for(let j=0; j<lives[pid]; j++) { lifeHtml += `<span class="life-heart life-active">❤</span>`; }
+            let lifeContainer = (pid === 1) ? 'lives-you' : 'lives-demon';
+            document.getElementById(lifeContainer).innerHTML = lifeHtml;
+        };
+        drawHP(1, 'player-hp'); drawHP(2, 'demon-hp');
+        
+        let showId = (gameMode === 'pve') ? 1 : currentTurn;
+        ITEM_LIST.forEach(k => { 
+            let el = document.getElementById('n-'+k);
+            if(el) {
+                let count = currentItems[showId][k] || 0;
+                el.innerText = count;
+                // FIX: Hide badge if count is 0
+                el.style.display = count > 0 ? 'flex' : 'none';
+            } 
+            
+            let btn = el.parentElement; 
+            if(btn) btn.querySelector('.item-content').classList.remove('item-deceptive');
+            if (selectedPact === 'eye' && currentItems[1][k] > 0 && showId === 1) {
+                if (Math.random() < 0.5) btn.querySelector('.item-content').classList.add('item-deceptive');
+            }
+        });
+
+        // 🔥 Render Enemy Items
+        if (gameMode === 'pve') {
+            const eContainer = document.getElementById('enemy-items-display');
+            eContainer.innerHTML = '';
+            for (let item in currentItems[2]) {
+                let count = currentItems[2][item];
+                if (count > 0) {
+                    for(let c=0; c<count; c++) {
+                        let div = document.createElement('div');
+                        div.className = 'enemy-item-icon';
+                        div.innerHTML = `${ITEM_ICONS[item]}<div class="enemy-item-tooltip"><b>${t('i_'+item)}</b><br>${t('d_'+item)}</div>`;
+                        eContainer.appendChild(div);
+                    }
+                }
+            }
+        }
+    }
+
+    function updateTurnUI() {}
+    function updateLog(t) { document.getElementById('info-text').innerText = t; }
+    function setControls(enable) {
+        document.getElementById('btn-self').disabled = !enable;
+        document.getElementById('btn-enemy').disabled = !enable;
+        let btns = document.querySelectorAll('.item-btn');
+        btns.forEach(b => b.disabled = !enable);
+    }
+    function getShooterName(pid) {
+        if (pid === 1) return t('label_you');
+        if (gameMode === 'pvp') return t('b_player2');
+        return currentBoss ? t('b_'+currentBoss.id) : t('label_demon');
+    }
+    function renderItemsGrid() {
+        const area = document.getElementById('items-area'); area.innerHTML = '';
+        ITEM_LIST.forEach(key => {
+            let btn = document.createElement('button'); btn.className = 'item-btn'; btn.onclick = () => useItem(key);
+            btn.innerHTML = `<div class="item-content"><div class="item-icon">${ITEM_ICONS[key]}</div><div class="item-name">${t('i_'+key)}</div></div><div class="item-badge" id="n-${key}">0</div><div class="item-tooltip"><h4>${t('i_'+key)}</h4><p>${t('d_'+key)}</p></div>`;
+            area.appendChild(btn);
+        });
+    }
+    function resetItems(pid) { ALL_ITEM_LIST.forEach(k => currentItems[pid][k] = 0); }
+    
+    function lootItems(pid, count) { 
+        let gained = [];
+        for(let i=0; i<count; i++) { 
+            let item = ITEM_LIST[Math.floor(Math.random()*ITEM_LIST.length)];
+            currentItems[pid][item]++;
+            gained.push(item);
+        } 
+        showItemToast(gained, pid);
+    }
+
+    function triggerEnrage() {
+        if (!currentBoss || currentBoss.phase2) return;
+        currentBoss.phase2 = true; gameLock = true;
+        document.getElementById('boss-card').classList.add('enraged');
+        let splash = document.getElementById('event-splash');
+        let card = document.querySelector('.event-splash-card');
+        card.classList.add('enrage-mode');
+        document.getElementById('splash-title').innerText = t('enrage_title');
+        document.getElementById('splash-desc').innerText = t('enrage_' + currentBoss.id);
+        splash.style.display = 'flex';
+        playSound('enrage');
+        
+        let gainedItems = [];
+        if (currentBoss.id === 'butcher') { currentItems[2].saw++; gainedItems.push('saw'); }
+        if (currentBoss.id === 'doctor') { hp[2] = Math.min(hp[2]+2, maxHp[2]); renderUI(); }
+        if (currentBoss.id === 'tactician') { currentItems[2].cuffs++; handCuffedTarget = 1; gainedItems.push('cuffs'); }
+        if (currentBoss.id === 'gambler') { 
+            let p1Items = Object.keys(currentItems[1]).filter(k => currentItems[1][k] > 0);
+            if(p1Items.length > 0) { let stolen = p1Items[Math.floor(Math.random()*p1Items.length)]; currentItems[1][stolen]--; currentItems[2][stolen]++; gainedItems.push(stolen); }
+        }
+        
+        if(gainedItems.length > 0) showItemToast(gainedItems, 2);
+        
+        setTimeout(() => { splash.style.display = 'none'; card.classList.remove('enrage-mode'); gameLock = false; }, 2500);
+    }
+
+    function checkDead() {
+        if (hp[1] <= 0 && safetyActive) {
+            hp[1] = 1; safetyActive = false;
+            updateLog("🧷 SAFETY SAVED YOU!");
+            unlockAchievement(16);
+            renderUI();
+            return false;
+        }
+
+        for (let pid = 1; pid <= 2; pid++) {
+            if (hp[pid] <= 0 && deathChipActive[pid]) {
+                let enemy = (pid === 1) ? 2 : 1;
+                hp[enemy] -= 2;
+                deathChipActive[pid] = false; 
+                updateLog(t('mech_mutual'));
+                renderUI(); 
+            }
+        }
+
+        for (let pid = 1; pid <= 2; pid++) {
+            if (hp[pid] <= 0) {
+                if (lives[pid] > 1) {
+                    lives[pid]--;
+                    hp[pid] = maxHp[pid]; 
+                    updateLog(t('resurrect', {name: getShooterName(pid)}));
+                    startRound(true); 
+                    return false; 
+                }
+            }
+        }
+
+        let p1Dead = hp[1] <= 0;
+        let p2Dead = hp[2] <= 0;
+
+        if (p1Dead || p2Dead) {
+            setControls(false); gameLock = true; clearSave();
+            playSound('win');
+            
+            setTimeout(() => {
+                let overlay = document.getElementById('overlay');
+                let title = document.getElementById('win-title');
+                let desc = document.getElementById('win-desc');
+                let comment = document.getElementById('win-comment'); 
+                let cardBox = document.getElementById('card-display');
+                let restartBtn = document.getElementById('restart-btn');
+                
+                overlay.style.display = 'flex';
+                requestAnimationFrame(() => overlay.style.opacity = 1);
+                cardBox.innerHTML = '';
+                
+                if (p1Dead && p2Dead) {
+                    title.innerText = t('win_draw'); title.style.color = "#7f8c8d";
+                    desc.innerText = t('win_draw_desc');
+                    comment.innerText = "“...”";
+                    restartBtn.style.display = 'block';
+                }
+                else if (p1Dead) {
+                    title.innerText = t('win_died'); title.style.color = "#ff4757"; 
+                    desc.innerText = t('win_kill', {name: getShooterName(2)});
+                    restartBtn.style.display = 'block';
+                    
+                    if(selectedPact) comment.innerText = t('eval_greedy');
+                    else comment.innerText = t('eval_sad');
+                    triggerTaunt('win'); 
+                } else {
+                    title.innerText = t('win_vic'); title.style.color = "var(--accent-gold)";
+                    desc.innerText = t('win_reward', {name: getShooterName(2)});
+                    restartBtn.style.display = 'none'; 
+                    
+                    if (hp[1] === maxHp[1]) comment.innerText = t('eval_perfect');
+                    else if (hp[1] === 1) comment.innerText = t('eval_clutch');
+                    else if (historyLog.filter(x=>x===1).length > historyLog.filter(x=>x===0).length) comment.innerText = t('eval_brutal');
+                    else comment.innerText = t('eval_lucky');
+
+                    if (hp[1] === 1) unlockAchievement(6);
+                    if (hp[1] === maxHp[1]) unlockAchievement(10);
+                    if (isTwisted) unlockAchievement(7);
+                    if (currentBoss.id === 'butcher') unlockAchievement(8);
+                    if (currentBoss.id === 'tactician') unlockAchievement(9);
+                    if (currentBoss.id === 'doctor') unlockAchievement(11);
+                    if (currentBoss.id === 'gambler') unlockAchievement(12);
+                    if (selectedPact) unlockAchievement(19);
+                    if (currentEvent.id === 'fog') unlockAchievement(20);
+                    if (currentEvent.id === 'sacrifice') unlockAchievement(29);
+                    if (level >= 3) unlockAchievement(30);
+
+                    buffPool.forEach(b => {
+                        let div = document.createElement('div'); div.className = 'card';
+                        div.innerHTML = `<h3 style="margin:0 0 5px 0; color:#fff">${t(b.key)}</h3><div style="font-size:0.8rem;color:#888">${t(b.descKey)}</div>`;
+                        div.onclick = () => {
+                            if(b.id==='heal') hp[1]=maxHp[1];
+                            if(b.id==='hp_up') {maxHp[1]++; hp[1]=maxHp[1];}
+                            if(b.id==='supplies') lootItems(1, 4);
+                            if(b.id==='tech') { currentItems[1].jammer++; currentItems[1].mirror++; }
+                            level++; maxHp[2]++;
+                            currentBoss = DEMON_ARCHETYPES[Math.floor(Math.random() * DEMON_ARCHETYPES.length)];
+                            renderLanguage(); overlay.style.opacity = 0;
+                            setTimeout(() => { overlay.style.display = 'none'; startRound(); }, 500);
+                        };
+                        cardBox.appendChild(div);
+                    });
+                }
+            }, 1000);
+            return true;
+        }
+        return false;
+    }
+    
+    function showMenu() { document.getElementById('overlay').style.display = 'none'; document.getElementById('menu-screen').style.display = 'flex'; checkSave(); }
+
+    renderItemsGrid(); checkSave();
+</script>
+</body>
+</html>
