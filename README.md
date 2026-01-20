@@ -8,7 +8,7 @@
 
 **Buckshot Reborn** 是对《Buckshot Roulette》核心玩法的深度重构与扩展。本项目不再局限于单纯的“记牌与概率计算”，而是引入了 **Roguelite (肉鸽)** 元素、角色构建（Build）以及动态环境系统。
 
-游戏使用原生 **HTML/CSS/JavaScript** 开发，实现了伪 3D 视差效果，无需下载引擎，浏览器即可流畅运行。
+游戏使用原生 **HTML/CSS/JavaScript** 开发纯 UI/DOM 驱动，实现了伪 3D 视差效果，无需下载引擎，浏览器即可流畅运行。
 
 ## ✨ 核心差异与特色 (Key Features)
 
