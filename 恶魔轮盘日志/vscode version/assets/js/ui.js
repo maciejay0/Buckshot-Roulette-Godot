@@ -44,7 +44,6 @@ function renderLanguage() {
     document.querySelector('.settings-content button:nth-of-type(1)').innerText = t('s_resume');
     document.querySelector('.settings-content button:nth-of-type(2)').innerText = t('s_menu');
     document.querySelector('.settings-content button:nth-of-type(3)').innerText = t('s_giveup');
-    document.getElementById('txt-sound').innerText = t('s_sound');
     document.getElementById('setting-paused').innerText = t('setting_paused');
 
     // 天赋与契约标题
@@ -387,7 +386,20 @@ function toggleLanguage() { curLang = (curLang === 'zh') ? 'en' : 'zh'; renderLa
 function openSettings() { document.getElementById('settings-screen').style.display = 'flex'; document.getElementById('sound-toggle').checked = soundEnabled; }
 function closeSettings() { document.getElementById('settings-screen').style.display = 'none'; }
 function updateLog(txt) { document.getElementById('info-text').innerText = txt; }
-function toggleSound() { soundEnabled = document.getElementById('sound-toggle').checked; }
+// 在 ui.js 中找到这个函数并替换为：
+function toggleSound() { 
+    // 1. 切换状态
+    soundEnabled = document.getElementById('sound-toggle').checked; 
+    
+    // 2. ✅ 新增：即时控制 BGM
+    // 如果关闭了静音，不仅要改变量，还要立刻暂停正在放的歌
+    if (!soundEnabled) {
+        if (typeof stopAllSounds === 'function') stopAllSounds();
+    } else {
+        // 如果开启了声音，尝试恢复 BGM
+        if (typeof playSound === 'function') playSound('bgm');
+    }
+}
 function showHelp() { document.getElementById('help-screen').style.display = 'flex'; }
 function closeHelp() { document.getElementById('help-screen').style.display = 'none'; }
 function toggleTwist() { isTwisted = !isTwisted; document.getElementById('twist-toggle').classList.toggle('active'); renderLanguage(); }
@@ -502,3 +514,38 @@ window.onload = function() {
     
     renderItemsGrid(); checkSave();
 };
+
+// --- assets/js/ui.js ---
+
+// 1. 拖动 BGM 滑块时触发
+window.updateBgmVolume = function(val) {
+    document.getElementById('bgm-val').innerText = val + "%"; // 更新百分比文字
+    if (typeof setBgmLevel === 'function') setBgmLevel(val);  // 调用 audio.js
+    // 保存到本地存储 (可选)
+    localStorage.setItem('br_vol_bgm', val);
+};
+
+// 2. 拖动 SFX 滑块时触发
+window.updateSfxVolume = function(val) {
+    document.getElementById('sfx-val').innerText = val + "%";
+    if (typeof setSfxLevel === 'function') setSfxLevel(val);
+    // 播放一个短声音来试听音量 (体验优化)
+    if (Math.random() < 0.2) playSound('click'); 
+    localStorage.setItem('br_vol_sfx', val);
+};
+
+// 3. 修改 openSettings 函数，确保打开时滑块位置正确
+function openSettings() { 
+    document.getElementById('settings-screen').style.display = 'flex'; 
+    
+    // 获取当前音量 (转为 0-100 的整数)
+    let b = Math.floor(volBgm * 100);
+    let s = Math.floor(volSfx * 100);
+
+    // 更新 UI
+    document.getElementById('slider-bgm').value = b;
+    document.getElementById('bgm-val').innerText = b + "%";
+    
+    document.getElementById('slider-sfx').value = s;
+    document.getElementById('sfx-val').innerText = s + "%";
+}

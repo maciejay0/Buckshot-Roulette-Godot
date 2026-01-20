@@ -150,11 +150,27 @@ function loadGame() {
         if (isRussianRoulette) document.body.classList.add('rr-mode-active'); else document.body.classList.remove('rr-mode-active');
         renderLanguage(); renderChamberUI(); updateHistoryUI();
         if (currentTurn === 1) { setControls(true); } else { setControls(false); if (gameMode === 'pve') { clearTimeout(globalTimer); globalTimer = setTimeout(aiLogic, 1000); } }
+        
+        // ✅ 修复：读取存档时播放 BGM
+        if (typeof playSound === 'function') playSound('bgm');
+
         updateLog("GAME RESUMED");
     } catch (e) { console.error("Save corrupted", e); clearSave(); }
 }
 function clearSave() { localStorage.removeItem('br_save'); checkSave(); }
-function exitGame() { if(lives[1] > 0 && lives[2] > 0) saveGame(); clearTimeout(globalTimer); document.getElementById('settings-screen').style.display = 'none'; document.getElementById('menu-screen').style.display = 'flex'; checkSave(); }
+
+function exitGame() { 
+    if(lives[1] > 0 && lives[2] > 0) saveGame(); 
+    
+    // ✅ 修复：回到主菜单时停止所有声音
+    if (typeof stopAllSounds === 'function') stopAllSounds();
+    
+    clearTimeout(globalTimer); 
+    document.getElementById('settings-screen').style.display = 'none'; 
+    document.getElementById('menu-screen').style.display = 'flex'; 
+    checkSave(); 
+}
+
 function giveUpGame() { clearTimeout(globalTimer); document.getElementById('settings-screen').style.display = 'none'; lives[1] = 0; hp[1] = 0; checkDead(); }
 
 function preStartGame(mode) { 
@@ -166,6 +182,16 @@ function selectTalent(tal) { selectedTalent = tal; document.getElementById('tale
 function selectPact(pact) { selectedPact = pact; document.getElementById('pact-screen').style.display = 'none'; starterItemsBuffer = []; document.getElementById('starter-item-screen').style.display = 'flex'; renderItemSelection(); }
 
 function initGame() {
+    // 读取保存的音量设置
+    let savedBgm = localStorage.getItem('br_vol_bgm');
+    let savedSfx = localStorage.getItem('br_vol_sfx');
+
+    if (savedBgm !== null) {
+        if (typeof setBgmLevel === 'function') setBgmLevel(savedBgm);
+    }
+    if (savedSfx !== null) {
+        if (typeof setSfxLevel === 'function') setSfxLevel(savedSfx);
+    }
     document.getElementById('menu-screen').style.display = 'none';
     currentItems = { 1: {}, 2: {} }; level = 1; bannedItems = [];
     beerCount = 0; magnifierCount = 0; isRussianRoulette = false;
@@ -187,7 +213,6 @@ function initGame() {
     if (gameMode === 'pve') { let proto = DEMON_ARCHETYPES[Math.floor(Math.random() * DEMON_ARCHETYPES.length)]; currentBoss = JSON.parse(JSON.stringify(proto)); currentBoss.phase2 = false; } 
     else { currentBoss = {id: 'player2'}; }
 
-    // ✨✨✨ 新增：根据权重随机生成整局环境 (Event Per Game) ✨✨✨
     let totalW = 0;
     EVENTS.forEach(e => totalW += e.weight);
     let r = Math.random() * totalW;
@@ -198,6 +223,9 @@ function initGame() {
     }
     updateLog(`⛈️ 当前环境: ${t('e_' + currentEvent.id)}`);
     
+    // ✅ 修复：开始游戏时播放 BGM
+    if (typeof playSound === 'function') playSound('bgm');
+
     window.gameJustStarted = true;
 
     renderLanguage(); startRound();
@@ -219,9 +247,6 @@ function triggerDiceRoll() {
     }, 100);
 }
 
-// =========================================
-// 4. 回合开始
-// =========================================
 // =========================================
 // 4. 回合开始 (startRound)
 // =========================================
@@ -310,7 +335,7 @@ function startRound(isResurrection = false) {
     updateAmmoTracker(); 
     saveGame();
 
-    // --- ✨✨✨ 关键修改：弹窗显示控制 ✨✨✨ ---
+    // --- 弹窗显示控制 ---
     let splash = document.getElementById('event-splash');
     
     // 判断是否显示全屏介绍：必须是整局刚开始(gameJustStarted 为 true)，且不是复活重开
@@ -365,7 +390,9 @@ function activePlayerAction(targetType) { if(!gameLock) fire(targetType); }
 // =========================================
 function fire(targetType) {
     setControls(false); gameLock = true; 
-    let gun = document.getElementById('gun-display'); gun.style.transform = "scale(1.3) rotate(-15deg)"; playSound('fire');
+    let gun = document.getElementById('gun-display'); 
+    gun.style.transform = "scale(1.3) rotate(-15deg)"; 
+    // ✅ 修复：这里删除 playSound('fire')，防止空弹也响
     
     globalTimer = setTimeout(() => {
         let bullet = magazine.pop(); chamberKnowledge.pop(); 
@@ -421,6 +448,9 @@ function fire(targetType) {
         // 🟥 实弹 (非哑弹)
         // ============================================
         if (isLive && !isDud) {
+            // ✅ 修复：在这里播放开火声！
+            playSound('fire');
+
             // 瘟医带毒
             if (gameMode === 'pve' && currentBoss.id === 'doctor' && shooter === 2 && targetType === 'enemy') {
                 delayedDamageQueue[1].push({dmg: 1, turns: 2}); updateLog("🦠 瘟医的子弹带有剧毒！(2回合后发作)");
@@ -642,13 +672,29 @@ function useItem(name) {
     if (gameMode === 'pve' && currentTurn === 2 && magazine.length > 0) globalTimer = setTimeout(aiLogic, 1500);
 }
 
+// ✅ 修复：魔镜窃取核心函数
 window.performMirrorSteal = function(targetItemKey) {
+    // 1. 基础检查
     if (!mirrorSelectionMode || gameLock) return;
     if (currentItems[2][targetItemKey] <= 0) return;
-    if (currentItems[1]['mirror'] > 0) { currentItems[1]['mirror']--; itemsUsedThisTurn++; unlockAchievement(15); } else { return; }
-    currentItems[2][targetItemKey]--; currentItems[1][targetItemKey] = (currentItems[1][targetItemKey] || 0) + 1;
-    playSound('loot'); updateLog(`🔮 STOLE ${t('i_' + targetItemKey)}!`); showItemToast([targetItemKey], 1);
-    mirrorSelectionMode = false; renderUI(); saveGame();
+
+    // 2. 解锁成就
+    unlockAchievement(15); 
+
+    // 3. 执行窃取数据交换
+    currentItems[2][targetItemKey]--; 
+    currentItems[1][targetItemKey] = (currentItems[1][targetItemKey] || 0) + 1;
+
+    // 4. 播放音效与提示
+    playSound('loot'); 
+    updateLog(`🔮 STOLE ${t('i_' + targetItemKey)}!`); 
+    showItemToast([targetItemKey], 1); // 弹出获得物品提示
+
+    // 5. 关闭模式并保存
+    mirrorSelectionMode = false; 
+    renderMirrorUI(false); 
+    renderUI(); 
+    saveGame();
 };
 
 function aiLogic() {
@@ -691,7 +737,12 @@ function checkDead() {
     }
     let p1Dead = hp[1] <= 0; let p2Dead = hp[2] <= 0;
     if (p1Dead || p2Dead) {
-        setControls(false); gameLock = true; clearSave(); playSound('win');
+        setControls(false); gameLock = true; clearSave(); 
+        if (p1Dead) {
+            playSound('lose'); // 如果玩家死了（包括放弃），播放失败音效
+        } else {
+            playSound('win');  // 只有玩家活着且敌人死了，才播放胜利音效
+        }
         setTimeout(() => {
             let overlay = document.getElementById('overlay'); let title = document.getElementById('win-title'); let desc = document.getElementById('win-desc'); let comment = document.getElementById('win-comment'); let cardBox = document.getElementById('card-display'); let restartBtn = document.getElementById('restart-btn');
             overlay.style.display = 'flex'; requestAnimationFrame(() => overlay.style.opacity = 1); cardBox.innerHTML = '';
@@ -763,7 +814,6 @@ function randomizeStarterItems() {
 }
 
 function setControls(enable) { document.getElementById('btn-self').disabled = !enable; document.getElementById('btn-enemy').disabled = isRussianRoulette ? true : !enable; document.querySelectorAll('.item-btn').forEach(b => b.disabled = isRussianRoulette ? true : !enable); }
-function playSound(type) { if (!soundEnabled) return; } // 音效占位
 
 // 骰宝逻辑
 function triggerSicBo() {
@@ -793,7 +843,7 @@ window.resolveSicBo = function(choice) {
         renderUI(); startRound(true);
     }, 2000);
 };
- // --- 🔧 修复：添加缺失的获取名字函数 ---
+
 function getShooterName(pid) {
     if (pid === 1) return t('label_you');
     if (gameMode === 'pvp') return t('label_p2');

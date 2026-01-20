@@ -83,17 +83,29 @@
         <div id="settings-screen" class="modal-overlay">
             <div class="settings-content">
                 <h2 id="setting-paused" style="color:#fff; margin:0;">PAUSED</h2>
-                <div class="setting-row">
-                    <span id="txt-sound">Sound Effects</span>
-                    <label class="switch"><input type="checkbox" id="sound-toggle" onchange="toggleSound()"><span class="slider"></span></label>
+                
+                <div class="setting-group" style="width:100%; margin: 20px 0;">
+                    
+                    <div class="setting-row" style="margin-bottom:15px;">
+                        <span style="font-size:0.8rem; color:#aaa;">MUSIC</span>
+                        <span id="bgm-val" style="font-size:0.8rem; color:var(--accent-gold); width:30px; text-align:right;">30%</span>
+                    </div>
+                    <input type="range" min="0" max="100" value="30" class="volume-slider" id="slider-bgm" oninput="updateBgmVolume(this.value)">
+
+                    <div class="setting-row" style="margin-top:15px; margin-bottom:5px;">
+                        <span style="font-size:0.8rem; color:#aaa;">SFX</span>
+                        <span id="sfx-val" style="font-size:0.8rem; color:var(--accent-red); width:30px; text-align:right;">80%</span>
+                    </div>
+                    <input type="range" min="0" max="100" value="80" class="volume-slider" id="slider-sfx" oninput="updateSfxVolume(this.value)">
+                    
                 </div>
+
                 <hr style="width:100%; border:0; border-top:1px solid #444; margin:5px 0;">
                 <button class="menu-btn" style="width:100%; margin:0; font-size:1rem;" onclick="closeSettings()">▶ RESUME</button>
                 <button class="menu-btn" style="width:100%; margin:0; font-size:1rem;" onclick="exitGame()">🏠 MAIN MENU</button>
                 <button class="menu-btn danger" style="width:100%; margin:0; font-size:1rem;" onclick="giveUpGame()">🏳️ GIVE UP</button>
             </div>
         </div>
-
         <div id="achieve-screen" class="modal-overlay">
             <h2 style="color:var(--accent-gold); margin-bottom:10px;">ACHIEVEMENTS</h2>
             <div class="achieve-list" id="achieve-list-container"></div>
@@ -209,8 +221,5 @@
             </div>
         </div>
 
-    </div> <script src="assets/js/constants.js"></script>
-    <script src="assets/js/engine.js"></script> 
-    <script src="assets/js/ui.js"></script>
-</body>
+    <script src="assets/js/constants.js"></script> <script src="assets/js/audio.js"></script>     <script src="assets/js/engine.js"></script>    <script src="assets/js/ui.js"></script>
 </html>
