@@ -100,7 +100,7 @@
 
 1.  克隆仓库：
     ```bash
-    git clone [https://github.com/your-username/buckshot-reborn.git](https://github.com/your-username/buckshot-reborn.git)
+    git clone https://github.com/maciejay0/Buckshot-Roulette-Godot.git
     ```
 2.  直接在浏览器中打开 `index.html`。
 3.  (可选) 使用 VS Code 的 "Live Server" 插件运行以获得更好的体验。
